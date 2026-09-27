@@ -1,0 +1,50 @@
+# 不可能日记
+
+本地优先的 AI 日记应用：打开就能记，记录不等待网络，原件永远保留。
+
+首版目标平台为 **Windows x64** 与 **Android arm64**，两端各自独立资料库，不做自动同步。建议技术栈为 Flutter/Dart 前端 + Rust 设备内本地核心，通过 `flutter_rust_bridge` 对接。
+
+> 当前状态：**计划阶段**。仓库中只有开发计划文档，尚无应用代码、无可运行构建、无实测性能数据。
+
+## 产品要点
+
+- 记录快、保存可靠：保存不等待网络、AI、索引重建或插件初始化。
+- 文字、语音、附件共用一条记录流程，不强制先选记录模式。
+- 默认安静记录，只有用户主动请求时才让 AI 回应。
+- AI 自动整理出简洁、有感染力、忠于事实的**自然段正文**，不写分点总结；允许润色，不许虚构。
+- 修改保留版本，自动生成结果绝不覆盖人工编辑。
+- 搜索统一覆盖日记与原始材料，混合关键词与本地向量检索，并能定位回原件。
+
+## 开发计划文档
+
+| 文件 | 用途 | 阅读人 |
+|---|---|---|
+| [docs/development/00-开发总览.md](docs/development/00-开发总览.md) | 产品要求、建议架构、目录所有权、M0–M5 阶段划分 | 双方 |
+| [docs/development/01-共享接口契约.md](docs/development/01-共享接口契约.md) | DiaryApi / PlatformHost、数据对象、状态机、事件、错误码 | 双方必读 |
+| [docs/development/02-前端开发任务书.md](docs/development/02-前端开发任务书.md) | Flutter 界面、平台能力、F0–F8 任务 | 前端 |
+| [docs/development/03-后端开发任务书.md](docs/development/03-后端开发任务书.md) | Rust 本地核心、存储、检索、模型、队列、插件、B0–B8 | 后端 |
+| [docs/development/04-验收与测试计划.md](docs/development/04-验收与测试计划.md) | E01–E38 验收案例、性能预算、质量门槛、发布阻断 | 双方 |
+| [docs/development/05-模型交接提示词.md](docs/development/05-模型交接提示词.md) | 分模型开工说明与协作约定 | 负责人 |
+
+接口契约在 **M0 冻结**，任何新增字段先更新契约文档和场景样例，再改实现。
+
+## 目录规划（尚未创建）
+
+```
+apps/diary_app/          前端：界面、导航、交互、应用壳
+packages/platform_host/  前端：录音、播放、文件选择、系统凭据、后台唤醒
+packages/diary_api/      后端维护契约，前端使用：Dart DTO 与抽象接口
+packages/diary_mock/     前端：DiaryApi 的确定性模拟实现
+packages/diary_bridge/   后端：Rust 桥的 Dart 适配及生成文件
+crates/diary_core/       后端：数据、业务规则、搜索、队列、模型、插件
+crates/diary_bridge/     后端：对 Flutter 的薄接口与生成入口
+models/manifest/         后端：模型版本、哈希、许可证、预处理描述
+plugins/examples/        后端：模板插件、导出插件、宿主示例
+tests/fixtures/          双方共用虚构资料与接口场景
+tests/e2e/               前端：跨层用户流程与平台验收
+docs/architecture/       后端起草、双方确认：架构决定与接口变更记录
+```
+
+## 许可证
+
+尚未确定。主仓库许可证由项目负责人最终确定；依赖与模型各有自己的授权，主仓库开源不等于模型可再分发。相关结论在 M0 记录。

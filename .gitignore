@@ -1,0 +1,79 @@
+# 不可能日记 · 忽略规则
+# 目录所有权见 docs/development/00-开发总览.md 第 5 节。
+# 原则：源码、契约、测试资料、构建说明入库；构建产物、缓存、密钥、私人资料不入库。
+
+# ---------- 通用 ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+*.log
+*.tmp
+.idea/
+.vscode/
+*.code-workspace
+
+# ---------- 私人资料与凭据（绝不入库） ----------
+*.key
+*.pem
+.env
+.env.*
+secrets/
+credentials/
+# 本地资料库、录音与备份的实际数据
+library/
+libraries/
+backups/
+recordings/
+*.diarydb
+*.diarydb-wal
+*.diarydb-shm
+
+# ---------- Flutter / Dart（前端负责） ----------
+.dart_tool/
+.packages
+.pub/
+.pub-cache/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+**/android/.gradle/
+**/android/local.properties
+**/android/key.properties
+**/android/app/*.jks
+**/android/app/*.keystore
+**/windows/flutter/ephemeral/
+**/windows/runner/Release/
+**/windows/runner/Debug/
+**/linux/flutter/ephemeral/
+**/macos/Flutter/ephemeral/
+**/ios/Flutter/ephemeral/
+# 桥接生成产物由后端脚本重建，前端不手改（00-开发总览 第 5 节）
+
+# ---------- Rust / Cargo（后端负责） ----------
+target/
+**/*.rs.bk
+# 说明：这是可执行应用，Cargo.lock 必须入库以保证依赖锁定。
+
+# ---------- 模型与插件包 ----------
+# 模型权重体积大，按 models/manifest 记录的哈希单独获取或走 Git LFS。
+models/**/*.onnx
+models/**/*.bin
+models/**/*.gguf
+plugins/**/*.wasm
+!plugins/examples/**/fixtures/*
+
+# ---------- 测试与验收产物 ----------
+coverage/
+*.lcov
+test-results/
+performance-reports/*.json
+!performance-reports/README.md
+dist/
+release/
+*.msix
+*.apk
+*.aab
