@@ -1,8 +1,9 @@
 name: check
 
 on:
+  # 不限制 base 分支：叠在别的 PR 上的分支也要能跑检查。
+  # 必过检查只对发往 main 的 PR 生效，这里放宽不会削弱门禁。
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 
@@ -21,5 +22,26 @@ jobs:
     steps:
       - name: 检出仓库
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: 校验关键文件、Markdown 链接与 .github YAML
+      - name: 校验关键文件、Markdown 链接、.github YAML 与共用场景
         run: python3 tools/check_docs.py
+
+  dart:
+    name: dart
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: packages/diary_api
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: 安装 Dart
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1
+        with:
+          sdk: 3.12.2
+      - name: 安装依赖
+        run: dart pub get
+      - name: 静态分析
+        run: dart analyze --fatal-infos
+      - name: 单元测试
+        run: dart test
