@@ -1,0 +1,502 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": "v1",
+  "source": "docs/development/01-共享接口契约.md 第 9 节",
+  "note": "所有资料均为虚构。步骤使用契约里的方法名，expected 写成可判定的断言。requiresRealDevice 为 true 的场景不得用模拟器或桌面结果代替验收。",
+  "scenarios": [
+    {
+      "id": "empty-library",
+      "name": "空库首次使用",
+      "goal": "首次安装、未配置任何远端模型时，用户能立刻创建并保存本地记录，模型配置不是入口阻断",
+      "requiresRealDevice": false,
+      "setup": {
+        "library": "empty",
+        "providerConfigured": false,
+        "clock": "2026-09-27T09:00:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": []
+      },
+      "steps": [
+        "core.open(null)",
+        "core.snapshot",
+        "captures.createDraft(occurredAt=null)",
+        "captures.saveDraft(text=\"今天下午面试完，走出大楼的时候风很大。\")",
+        "captures.commit",
+        "core.close",
+        "core.open(null)",
+        "search.start(mode=keyword, query=\"面试\")"
+      ],
+      "expected": {
+        "durableTrueOnSave": true,
+        "captureState": "committed",
+        "survivesRestart": true,
+        "keywordSearchReturnsTheCapture": true,
+        "diaryGenerationBlocked": false,
+        "providerTasksGoTo": "waiting_configuration",
+        "noFabricatedDiary": true
+      },
+      "covers": ["E01", "E02"]
+    },
+    {
+      "id": "text-only-day",
+      "name": "纯文字一天",
+      "goal": "一天多条纯文字记录，能正确归属到同一 dayKey，整理出的正文是自然段而不是要点列表",
+      "requiresRealDevice": false,
+      "setup": {
+        "library": "seeded-text",
+        "providerConfigured": true,
+        "clock": "2026-09-27T22:30:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": []
+      },
+      "steps": [
+        "captures.createDraft/saveDraft/commit 三次（09:12、14:40、21:05）",
+        "core.snapshot",
+        "diary.generate(dayKey=2026-09-27, reason=manual)",
+        "diary.getDay(dayKey=2026-09-27)",
+        "diary.getVersion(versionId=currentVersionId)"
+      ],
+      "expected": {
+        "dayKeyOfAllCaptures": "2026-09-27",
+        "orderedByOccurredAt": true,
+        "bodyIsParagraphs": true,
+        "bodyHasNoBulletList": true,
+        "bodyHasNoHeadings": true,
+        "firstGenerationBecomesCurrent": true,
+        "sourceSnapshotListsAllThreeCaptures": true
+      },
+      "covers": ["E02", "E25"]
+    },
+    {
+      "id": "mixed-media-day",
+      "name": "图文混合一天",
+      "goal": "同一条记录里同时有文字、图片、音频和文件时，顺序、状态与原件关系都正确，且导入后删除外部原文件不影响资料库",
+      "requiresRealDevice": false,
+      "setup": {
+        "library": "seeded-mixed",
+        "providerConfigured": false,
+        "clock": "2026-09-27T10:00:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": []
+      },
+      "steps": [
+        "captures.createDraft",
+        "imports.prepare/finish（一张图片、一个 docx）",
+        "recordings.prepare/registerSegment/finalize（一段 12 秒音频）",
+        "captures.saveDraft(text=...)、captures.commit",
+        "删除外部原文件（模拟器外部路径）",
+        "assets.open(assetId=图片, purpose=preview)",
+        "diary.generate 后检查 provenanceLinks"
+      ],
+      "expected": {
+        "orderedSourceIdsMatchesUserOrder": true,
+        "allAssetsStorageState": "ready",
+        "sha256VerifiedOnImport": true,
+        "externalDeletionDoesNotBreakAsset": true,
+        "derivedContentsKeptSeparateFromOriginals": true,
+        "provenanceLinksResolveToSourceRevision": true
+      },
+      "covers": ["E06", "E07"]
+    },
+    {
+      "id": "long-recording-with-pause",
+      "name": "三十分钟带暂停录音",
+      "goal": "长录音期间暂停继续、静默不自动结束，封闭片段完整、时长与播放位置正确",
+      "requiresRealDevice": true,
+      "setup": {
+        "library": "seeded-audio",
+        "providerConfigured": false,
+        "clock": "2026-09-27T21:00:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": ["中途暂停两次", "中途静默 5 分钟"]
+      },
+      "steps": [
+        "recordings.prepare",
+        "recordings.registerSegment 多次（含暂停后的继续）",
+        "recordings.updateState",
+        "recordings.finalize(结束原因=user)",
+        "assets.open(purpose=play)",
+        "recordings.recover"
+      ],
+      "expected": {
+        "segmentIndexMonotonic": true,
+        "silenceDoesNotEndRecording": true,
+        "logicalDurationMatchesPlayback": true,
+        "pausedIntervalNotCountedInPlayback": true,
+        "noWholeAudioInMemory": true,
+        "transcriptionDoesNotBlockFinalize": true
+      },
+      "covers": ["E12"],
+      "note": "暂停不写入内存整段音频这一条需要在真机观察内存曲线，桌面结论不算数。"
+    },
+    {
+      "id": "cross-midnight-recording",
+      "name": "跨午夜录音",
+      "goal": "23:50 开始、00:20 结束的录音按开始时间归属日期，事后改时区不搬动历史",
+      "requiresRealDevice": true,
+      "setup": {
+        "library": "empty",
+        "providerConfigured": false,
+        "clock": "2026-09-27T23:50:00+08:00",
+        "timeZone": "Asia/Shanghai",
+        "injected": ["跨午夜", "随后修改 diaryTimeZone"]
+      },
+      "steps": [
+        "recordings.prepare/registerSegment/finalize",
+        "captures.commit",
+        "diary.getDay(2026-09-27)",
+        "settings.update(diaryTimeZone=America/New_York)",
+        "diary.listDays"
+      ],
+      "expected": {
+        "dayKey": "2026-09-27",
+        "wallClockTimestampsUnchanged": true,
+        "timeZoneChangeMovesNoHistory": true,
+        "explicitMoveRequiresUserAction": true
+      },
+      "covers": ["E15"]
+    },
+    {
+      "id": "image-without-ocr",
+      "name": "图片未 OCR",
+      "goal": "没有 OCR 能力时图片仍可保存与按文件名检索，但不能声称内容可搜",
+      "requiresRealDevice": false,
+      "setup": {
+        "library": "seeded-image",
+        "providerConfigured": false,
+        "clock": "2026-09-27T12:00:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": ["无 OCR 能力"]
+      },
+      "steps": [
+        "imports.prepare/finish（截图一张）",
+        "captures.commit",
+        "indexes.status",
+        "search.start(query=文件名关键字)",
+        "search.start(query=图片里的文字内容)"
+      ],
+      "expected": {
+        "assetStorageState": "ready",
+        "extractedCoverage": "metadata_only",
+        "filenameSearchFindsIt": true,
+        "contentSearchClaimsNothing": true,
+        "uiShowsUnsupportedReason": true,
+        "noInfiniteRetry": true
+      },
+      "covers": ["E16"]
+    },
+    {
+      "id": "attachment-parse-failure",
+      "name": "附件解析失败",
+      "goal": "解析失败的附件保留原件并如实标注，不能显示成\"没有相关内容\"",
+      "requiresRealDevice": false,
+      "setup": {
+        "library": "seeded-file",
+        "providerConfigured": false,
+        "clock": "2026-09-27T12:30:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": ["畸形 docx", "扫描版 PDF（无文本层）"]
+      },
+      "steps": [
+        "imports.prepare/finish（畸形 docx、扫描 PDF、不支持的二进制）",
+        "captures.commit",
+        "indexes.status",
+        "jobs.list 查看失败任务",
+        "search.start(query=文件名)"
+      ],
+      "expected": {
+        "originalKept": true,
+        "extractedCoverage": "unavailable",
+        "errorCode": "unsupported_format",
+        "failureVisibleToUser": true,
+        "notReportedAsNoResults": true,
+        "noInfiniteRetry": true,
+        "filenameSearchStillWorks": true
+      },
+      "covers": ["E17"]
+    },
+    {
+      "id": "keyword-hit-semantic-miss",
+      "name": "关键词命中而语义不命中",
+      "goal": "一至二字的短词（如「妈妈」「离职」）必须能召回",
+      "requiresRealDevice": false,
+      "setup": {
+        "library": "seeded-zh-short-words",
+        "providerConfigured": false,
+        "clock": "2026-09-27T15:00:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": ["查询包含引号、连字符与 emoji"]
+      },
+      "steps": [
+        "search.start(mode=keyword, query=\"妈妈\")",
+        "search.start(mode=keyword, query=\"离职\")",
+        "search.start(mode=keyword, query=\"张可顺\")",
+        "search.start(mode=keyword, query=\"A-1 / \\\"引号\\\" 🙂\")"
+      ],
+      "expected": {
+        "shortQueryRecalled": true,
+        "matchedByContains": "keyword",
+        "specialCharactersDoNotError": true,
+        "queryNotExecutedAsRawFtsExpression": true,
+        "resultsGroupedByCapture": true
+      },
+      "covers": ["E18"],
+      "note": "具体分词方案未冻结（契约 1.4 节），本场景只约束可观察结果，不约束实现。"
+    },
+    {
+      "id": "semantic-hit-without-words",
+      "name": "语义命中而无相同词",
+      "goal": "没有共同原词的模糊描述也能命中人工标注的相关原件，且离线可用",
+      "requiresRealDevice": false,
+      "setup": {
+        "library": "seeded-semantic-set",
+        "providerConfigured": false,
+        "clock": "2026-09-27T15:30:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": ["本机断网"]
+      },
+      "steps": [
+        "indexes.rebuild(scope=all)",
+        "search.start(mode=hybrid, query=人工标注的模糊描述)",
+        "断开网络后重复上一步",
+        "search.start(mode=semantic, query=同上)"
+      ],
+      "expected": {
+        "annotatedRelatedItemsRecalled": true,
+        "matchedByContains": "semantic",
+        "worksOffline": true,
+        "noRemoteEmbeddingCall": true,
+        "similarityNotShownAsConfidence": true,
+        "coverageReportedHonestly": true
+      },
+      "covers": ["E19", "E20"],
+      "note": "质量集与阈值尚未建立，本场景先固定\"能召回人工标注项\"这一可判定条件。"
+    },
+    {
+      "id": "contradictory-statements",
+      "name": "原始说法矛盾",
+      "goal": "同一天先否定后来转变看法时，日记保留时序与事实，不编造因果或积极结局",
+      "requiresRealDevice": false,
+      "setup": {
+        "library": "seeded-contradiction",
+        "providerConfigured": true,
+        "clock": "2026-09-27T23:00:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": []
+      },
+      "steps": [
+        "captures.commit（早上：不想干了）",
+        "captures.commit（晚上：其实还想再试试）",
+        "diary.generate(dayKey=同日)",
+        "diary.getVersion"
+      ],
+      "expected": {
+        "bothStatementsPreserved": true,
+        "orderRespected": true,
+        "noInventedCausality": true,
+        "noForcedPositiveEnding": true,
+        "noInventedFacts": true,
+        "provenanceLinksCoverBothCaptures": true
+      },
+      "covers": ["E24"]
+    },
+    {
+      "id": "edited-diary-then-new-material",
+      "name": "当日日记有人工修改又来了新材料",
+      "goal": "自动整理绝不覆盖人工编辑，新材料到达只产生候选版本",
+      "requiresRealDevice": false,
+      "setup": {
+        "library": "seeded-edited-day",
+        "providerConfigured": true,
+        "clock": "2026-09-27T23:10:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": []
+      },
+      "steps": [
+        "diary.generate(dayKey=当日) 并设为 current",
+        "diary.saveEdit(baseVersionId=current, body=人工改写)",
+        "captures.commit（新材料）",
+        "diary.generate(dayKey=当日, reason=auto)",
+        "diary.listVersions"
+      ],
+      "expected": {
+        "currentVersionStillUserEdit": true,
+        "newVersionOrigin": "generated",
+        "newVersionBecomesCandidate": true,
+        "userEditNotOverwritten": true,
+        "editDraftNotLost": true,
+        "materialCountsUpdated": true
+      },
+      "covers": ["E26"]
+    },
+    {
+      "id": "remote-401-429-timeout",
+      "name": "远端鉴权失败、限流与超时",
+      "goal": "远端错误按类别退避，记录不受影响，通知去重",
+      "requiresRealDevice": false,
+      "setup": {
+        "library": "seeded-text",
+        "providerConfigured": true,
+        "clock": "2026-09-27T23:20:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": ["401", "429 带 Retry-After", "无网络", "额度不足", "超时"]
+      },
+      "steps": [
+        "diary.generate 触发远端调用",
+        "providers.test",
+        "jobs.list / jobs.retry",
+        "重启后 core.open 检查通知去重"
+      ],
+      "expected": {
+        "captureUnaffected": true,
+        "authenticationFailedWaitsForConfig": true,
+        "rateLimitedRespectsRetryAfter": true,
+        "quotaExceededPauses": true,
+        "timeoutRetriesBounded": true,
+        "noClaimOfNoRemoteCharge": true,
+        "attentionDeduplicatedAcrossRestart": true
+      },
+      "covers": ["E28", "E27"]
+    },
+    {
+      "id": "disk-full",
+      "name": "磁盘满",
+      "goal": "空间不足时明确显示未保存、停止继续写入并保留已封闭片段，不能假装保存成功",
+      "requiresRealDevice": false,
+      "setup": {
+        "library": "seeded-text",
+        "providerConfigured": false,
+        "clock": "2026-09-27T18:00:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": ["写入前剩余空间不足", "录音中空间耗尽"]
+      },
+      "steps": [
+        "captures.saveDraft",
+        "imports.prepare/finish",
+        "recordings.prepare/registerSegment（空间耗尽）",
+        "recordings.finalize"
+      ],
+      "expected": {
+        "errorCode": "storage_full",
+        "durableNotClaimed": true,
+        "recordingStops": true,
+        "closedSegmentsRetained": true,
+        "otherCapturesIntact": true,
+        "userSeesSpaceInformation": true
+      },
+      "covers": ["E04", "E09"]
+    },
+    {
+      "id": "recording-interrupted",
+      "name": "录音被中断与恢复",
+      "goal": "来电或进程被杀后状态如实改变，已确认片段可恢复，缺口可见",
+      "requiresRealDevice": true,
+      "setup": {
+        "library": "seeded-audio",
+        "providerConfigured": false,
+        "clock": "2026-09-27T16:00:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": ["来电中断", "录音进程被系统终止", "耳机切换", "输入设备拔出"]
+      },
+      "steps": [
+        "recordings.prepare/registerSegment",
+        "触发中断",
+        "recordings.updateState（原生上报中断）",
+        "recordings.recover",
+        "assets.open(purpose=play)"
+      ],
+      "expected": {
+        "stateIsInterruptedOrRecoverable": true,
+        "uiStopsShowingRecording": true,
+        "closedSegmentsRecovered": true,
+        "tailGapReported": true,
+        "noSilentFakeRecording": true,
+        "existingAudioPlayable": true
+      },
+      "covers": ["E10", "E13", "E14"]
+    },
+    {
+      "id": "missing-original",
+      "name": "原件缺失",
+      "goal": "原件不可用时如实显示，不当作可播放内容，元数据仍可检索",
+      "requiresRealDevice": false,
+      "setup": {
+        "library": "seeded-mixed",
+        "providerConfigured": false,
+        "clock": "2026-09-27T19:00:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": ["文件库中删除某资产对象"]
+      },
+      "steps": [
+        "assets.open(assetId=已删除资产, purpose=play)",
+        "sources.locate(sourceRef, locator)",
+        "search.start(query=该资产的原始文件名)"
+      ],
+      "expected": {
+        "assetStorageState": "missing",
+        "errorCode": "asset_missing",
+        "notTreatedAsPlayable": true,
+        "metadataStillSearchable": true,
+        "diaryVersionUnaffected": true
+      },
+      "covers": ["E22"],
+      "note": "asset_missing 在 04-验收与测试计划.md 里没有独立案例，实现时应补一个，或把本条并入 E22。"
+    },
+    {
+      "id": "plugin-over-budget",
+      "name": "插件超预算与越权",
+      "goal": "插件越权、超预算时被终止且不影响原件与记录入口",
+      "requiresRealDevice": false,
+      "setup": {
+        "library": "seeded-plugin",
+        "providerConfigured": false,
+        "clock": "2026-09-27T20:00:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": ["插件尝试读原件", "插件无限循环", "插件输出超限", "插件升级新增权限"]
+      },
+      "steps": [
+        "plugins.inspectPackage",
+        "plugins.install/enable",
+        "plugins.invoke（越权与超预算各一次）",
+        "plugins.disable / uninstall",
+        "captures.commit（确认记录入口仍可用）"
+      ],
+      "expected": {
+        "errorCode": "plugin_denied 或 plugin_budget_exceeded",
+        "callTerminated": true,
+        "originalsUntouched": true,
+        "captureFlowUnaffected": true,
+        "permissionChangeVisible": true,
+        "uninstallKeepsDiary": true
+      },
+      "covers": ["E32", "E33"]
+    },
+    {
+      "id": "corrupted-backup",
+      "name": "损坏与不兼容备份",
+      "goal": "恢复失败时原因清楚，当前资料库不被修改",
+      "requiresRealDevice": false,
+      "setup": {
+        "library": "seeded-text",
+        "providerConfigured": false,
+        "clock": "2026-09-27T20:30:00Z",
+        "timeZone": "Asia/Shanghai",
+        "injected": ["哈希不匹配", "越界路径条目", "高版本 schemaVersion"]
+      },
+      "steps": [
+        "backups.create",
+        "篡改备份包后 backups.inspect",
+        "backups.restore",
+        "core.snapshot（确认当前库未变）"
+      ],
+      "expected": {
+        "errorCode": "corrupted_backup 或 incompatible_backup",
+        "reasonVisible": true,
+        "currentLibraryUnchanged": true,
+        "restoreDefaultsToNewLibrary": true,
+        "noPathTraversalAccepted": true
+      },
+      "covers": ["E35"]
+    }
+  ]
+}
