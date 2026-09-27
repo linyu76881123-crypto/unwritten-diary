@@ -1,0 +1,13 @@
+name: diary_api
+description: 「不写日记」两层共享的 Dart DTO 与 DiaryApi / PlatformHost 抽象接口，与 Rust 实现无关。
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ">=3.9.0 <4.0.0"
+
+# 刻意不依赖 Flutter：核心层测试、Mock 一致性测试都应该能在纯 Dart 环境跑。
+# 也刻意不引入 JSON 序列化：桥接层负责传输编码，这里只放不可变值对象。
+dev_dependencies:
+  lints: ">=5.0.0 <7.0.0"
+  test: ^1.25.0

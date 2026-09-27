@@ -1,5 +1,5 @@
 # 不写日记 · 忽略规则
-# 目录所有权见 docs/development/00-开发总览.md 第 5 节。
+# 代码分层与目录职责见 docs/development/00-开发总览.md 第 5 节。
 # 原则：源码、契约、测试资料、构建说明入库；构建产物、缓存、密钥、私人资料不入库。
 
 # ---------- 通用 ----------
@@ -52,6 +52,8 @@ build/
 **/macos/Flutter/ephemeral/
 **/ios/Flutter/ephemeral/
 # 桥接生成产物由后端脚本重建，前端不手改（00-开发总览 第 5 节）
+# 纯 Dart 依赖包不锁 pubspec.lock（Dart 官方建议）；应用工程 apps/**/pubspec.lock 必须入库。
+packages/*/pubspec.lock
 
 # ---------- Rust / Cargo（后端负责） ----------
 target/
@@ -61,6 +63,8 @@ target/
 # ---------- 模型与插件包 ----------
 # 模型权重体积大，按 models/manifest 记录的哈希单独获取或走 Git LFS。
 models/**/*.onnx
+# 分词器与权重一起按 manifest 记录的哈希获取，不随仓库分发。
+models/**/tokenizer.json
 models/**/*.bin
 models/**/*.gguf
 plugins/**/*.wasm
