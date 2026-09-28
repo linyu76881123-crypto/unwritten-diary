@@ -408,6 +408,7 @@ enum DiaryErrorCode {
   notFound('not_found'),
   invalidState('invalid_state'),
   assetMissing('asset_missing'),
+  integrityFailed('integrity_failed'),
   unsupportedFormat('unsupported_format'),
   providerNotConfigured('provider_not_configured'),
   authenticationFailed('authentication_failed'),

@@ -61,6 +61,7 @@ void main() {
         'not_found',
         'invalid_state',
         'asset_missing',
+        'integrity_failed',
         'unsupported_format',
         'provider_not_configured',
         'authentication_failed',
