@@ -11,6 +11,16 @@ pub fn new_id(prefix: &str) -> String {
     format!("{prefix}_{}", Uuid::now_v7().simple())
 }
 
+/// 当前时间，截断到毫秒。
+///
+/// 库里的时间统一是毫秒精度的 ISO 字符串。如果返回给调用方的时间带着纳秒，
+/// 「刚写进去的值」和「再读出来的值」就不相等——这类不一致迟早会咬人
+/// （B1c 的片段回执测试就是这么发现它的）。
+pub fn now() -> DateTime<Utc> {
+    let current = Utc::now();
+    DateTime::from_timestamp_millis(current.timestamp_millis()).expect("当前时间总是合法")
+}
+
 /// UTC 时间的统一存储格式：带 Z 的 RFC 3339，毫秒精度。
 pub fn to_iso(value: DateTime<Utc>) -> String {
     value.to_rfc3339_opts(SecondsFormat::Millis, true)

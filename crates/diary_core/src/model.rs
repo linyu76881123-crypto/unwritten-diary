@@ -128,11 +128,19 @@ pub struct CapturePage {
     pub next_cursor: Option<String>,
 }
 
-/// 持久业务事件类型，契约第 6 节。B1a 只发 capture.changed。
+/// 持久业务事件类型，契约第 6 节的完整清单。
+///
+/// 现在实际会发的是 capture.changed、asset.changed 与 job.changed；
+/// 其余几种等对应的切片接上（日记、索引、插件）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EventType {
     CaptureChanged,
     AssetChanged,
+    DiaryVersionCreated,
+    DiaryCurrentChanged,
+    JobChanged,
+    IndexCoverageChanged,
+    PluginChanged,
 }
 
 impl EventType {
@@ -140,6 +148,11 @@ impl EventType {
         match self {
             Self::CaptureChanged => "capture.changed",
             Self::AssetChanged => "asset.changed",
+            Self::DiaryVersionCreated => "diary.versionCreated",
+            Self::DiaryCurrentChanged => "diary.currentChanged",
+            Self::JobChanged => "job.changed",
+            Self::IndexCoverageChanged => "index.coverageChanged",
+            Self::PluginChanged => "plugin.changed",
         }
     }
 
@@ -147,6 +160,11 @@ impl EventType {
         match value {
             "capture.changed" => Some(Self::CaptureChanged),
             "asset.changed" => Some(Self::AssetChanged),
+            "diary.versionCreated" => Some(Self::DiaryVersionCreated),
+            "diary.currentChanged" => Some(Self::DiaryCurrentChanged),
+            "job.changed" => Some(Self::JobChanged),
+            "index.coverageChanged" => Some(Self::IndexCoverageChanged),
+            "plugin.changed" => Some(Self::PluginChanged),
             _ => None,
         }
     }
@@ -338,4 +356,271 @@ pub struct AssetLease {
     pub handle: String,
     pub expires_at: DateTime<Utc>,
     pub byte_size: i64,
+}
+
+/// 录音状态，契约第 3 节「录音」行。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecordingState {
+    Idle,
+    Preparing,
+    Recording,
+    Paused,
+    Stopping,
+    Saved,
+    /// 被来电、系统回收等打断。**不是** paused：界面不能继续显示正在收音。
+    Interrupted,
+    /// 有已封闭片段可以救回来，但可能缺尾巴。
+    Recoverable,
+    Error,
+}
+
+impl RecordingState {
+    pub fn wire(self) -> &'static str {
+        match self {
+            Self::Idle => "idle",
+            Self::Preparing => "preparing",
+            Self::Recording => "recording",
+            Self::Paused => "paused",
+            Self::Stopping => "stopping",
+            Self::Saved => "saved",
+            Self::Interrupted => "interrupted",
+            Self::Recoverable => "recoverable",
+            Self::Error => "error",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "idle" => Some(Self::Idle),
+            "preparing" => Some(Self::Preparing),
+            "recording" => Some(Self::Recording),
+            "paused" => Some(Self::Paused),
+            "stopping" => Some(Self::Stopping),
+            "saved" => Some(Self::Saved),
+            "interrupted" => Some(Self::Interrupted),
+            "recoverable" => Some(Self::Recoverable),
+            "error" => Some(Self::Error),
+            _ => None,
+        }
+    }
+
+    /// 是否还在进行中（重启后需要收拾的那批）。
+    pub fn is_open(self) -> bool {
+        matches!(
+            self,
+            Self::Preparing | Self::Recording | Self::Paused | Self::Stopping | Self::Interrupted
+        )
+    }
+}
+
+/// 一个已封闭片段的描述，契约第 4.2 节。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SegmentManifest {
+    pub segment_id: String,
+    /// 相对暂存目录的文件名，不是绝对路径。
+    pub relative_file_name: String,
+    pub duration_ms: i64,
+    pub sha256: String,
+    pub byte_size: i64,
+    pub closed_at: Option<DateTime<Utc>>,
+}
+
+/// 片段登记回执。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SegmentReceipt {
+    pub segment_id: String,
+    pub segment_index: i64,
+    pub durable: bool,
+    pub recorded_at: DateTime<Utc>,
+}
+
+/// 录音票据。`staging_ticket` 是平台层唯一被允许写入的目录。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordingTicket {
+    pub recording_id: String,
+    pub asset_id: String,
+    pub staging_ticket: String,
+}
+
+/// 原生上报的录音状态。后端不虚构麦克风状态。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NativeRecordingStatus {
+    pub recording_id: String,
+    pub state: RecordingState,
+    pub wall_clock: DateTime<Utc>,
+    pub elapsed_ms: i64,
+    /// 已经持久化的位置，恢复时用来判断缺口。
+    pub persisted_through_ms: i64,
+    pub input_device_changed: bool,
+    pub message: Option<String>,
+}
+
+/// 录音会话快照。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordingSession {
+    pub recording_id: String,
+    pub asset_id: String,
+    pub state: RecordingState,
+    pub elapsed_ms: i64,
+    pub durable_through_ms: i64,
+    pub segment_count: i64,
+    pub last_error: Option<String>,
+}
+
+/// 最终化结果。转写不阻塞完成。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordingFinalizeResult {
+    pub recording_id: String,
+    pub asset_id: String,
+    pub state: RecordingState,
+    pub segment_count: i64,
+    pub transcription_queued: bool,
+    pub logical_duration_ms: i64,
+}
+
+/// 恢复结果：不假设最后一段完好，明确报告缺口。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecordingRecovery {
+    pub recording_id: Option<String>,
+    pub state: RecordingState,
+    pub closed_segment_indexes: Vec<i64>,
+    /// 已知缺口的总时长；无法估计时为 0 并在 notes 里说明。
+    pub gap_ms: i64,
+    pub notes: Vec<String>,
+}
+
+/// 任务状态，契约第 3 节「任务」行。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JobState {
+    Queued,
+    Running,
+    Succeeded,
+    RetryWait,
+    WaitingConfiguration,
+    WaitingDependency,
+    WaitingNetwork,
+    Failed,
+    Cancelled,
+}
+
+impl JobState {
+    pub fn wire(self) -> &'static str {
+        match self {
+            Self::Queued => "queued",
+            Self::Running => "running",
+            Self::Succeeded => "succeeded",
+            Self::RetryWait => "retry_wait",
+            Self::WaitingConfiguration => "waiting_configuration",
+            Self::WaitingDependency => "waiting_dependency",
+            Self::WaitingNetwork => "waiting_network",
+            Self::Failed => "failed",
+            Self::Cancelled => "cancelled",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "queued" => Some(Self::Queued),
+            "running" => Some(Self::Running),
+            "succeeded" => Some(Self::Succeeded),
+            "retry_wait" => Some(Self::RetryWait),
+            "waiting_configuration" => Some(Self::WaitingConfiguration),
+            "waiting_dependency" => Some(Self::WaitingDependency),
+            "waiting_network" => Some(Self::WaitingNetwork),
+            "failed" => Some(Self::Failed),
+            "cancelled" => Some(Self::Cancelled),
+            _ => None,
+        }
+    }
+
+    pub fn is_terminal(self) -> bool {
+        matches!(self, Self::Succeeded | Self::Failed | Self::Cancelled)
+    }
+}
+
+/// 任务优先级，任务书 7.1 节。数字越大越先做。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum JobPriority {
+    /// 保存与录音片段登记最高。
+    SaveAndRecording,
+    UserSearch,
+    UserOrganize,
+    BackgroundExtract,
+    AutoOrganize,
+    Maintenance,
+}
+
+impl JobPriority {
+    pub fn value(self) -> i64 {
+        match self {
+            Self::SaveAndRecording => 60,
+            Self::UserSearch => 50,
+            Self::UserOrganize => 40,
+            Self::BackgroundExtract => 30,
+            Self::AutoOrganize => 20,
+            Self::Maintenance => 10,
+        }
+    }
+}
+
+/// 任务进度。没有可靠进度时为空，不能虚构百分比。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobProgress {
+    pub completed: i64,
+    pub total: i64,
+}
+
+/// 持久任务，契约第 2.7 节。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Job {
+    pub id: String,
+    pub kind: String,
+    pub state: JobState,
+    pub priority: i64,
+    pub target_ids: Vec<String>,
+    pub input_snapshot_hash: Option<String>,
+    pub progress: Option<JobProgress>,
+    pub attempt_count: i64,
+    pub max_attempts: i64,
+    pub next_attempt_at: Option<DateTime<Utc>>,
+    pub error_code: Option<String>,
+    pub requires_user_action: bool,
+    pub attention_key: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// 入队参数。
+#[derive(Debug, Clone)]
+pub struct NewJob {
+    pub kind: String,
+    pub priority: JobPriority,
+    pub target_ids: Vec<String>,
+    pub input_snapshot_hash: Option<String>,
+    pub max_attempts: i64,
+}
+
+impl NewJob {
+    pub fn new(kind: impl Into<String>, priority: JobPriority) -> Self {
+        Self {
+            kind: kind.into(),
+            priority,
+            target_ids: Vec::new(),
+            input_snapshot_hash: None,
+            max_attempts: 5,
+        }
+    }
+
+    pub fn targeting(mut self, ids: Vec<String>) -> Self {
+        self.target_ids = ids;
+        self
+    }
+
+    pub fn with_snapshot(mut self, hash: impl Into<String>) -> Self {
+        self.input_snapshot_hash = Some(hash.into());
+        self
+    }
 }

@@ -1,8 +1,8 @@
 # diary_core
 
-设备内本地核心。当前完成到 **B1b**：资料库、迁移、幂等写入、记录路径，以及原件文件库与导入交接。
+设备内本地核心。当前完成到 **B1c**：资料库、迁移、幂等写入、记录路径、原件文件库与导入交接，以及录音会话与任务队列。
 
-设计决定与未完成项记在 [`docs/architecture/m1-存储与幂等.md`](../../docs/architecture/m1-存储与幂等.md) 与 [`docs/architecture/m1-原件文件库.md`](../../docs/architecture/m1-原件文件库.md)。
+设计决定与未完成项记在 `docs/architecture/` 下三份记录：[m1-存储与幂等](../../docs/architecture/m1-存储与幂等.md)、[m1-原件文件库](../../docs/architecture/m1-原件文件库.md)、[m1-录音与队列](../../docs/architecture/m1-录音与队列.md)。
 
 ## 已实现
 
@@ -17,16 +17,19 @@
 | 原件文件库 | 内容按 sha256 存放与去重；`imports.prepare` / `finish` / `status` / `cancel` |
 | 资产租约 | `assets.open` / `release`，内存态 + 过期回收；文件丢失如实报 `asset_missing` |
 | 导入恢复 | 重开资料库时把未完成的导入标成 `recoverable`，不假装成功 |
+| 录音会话 | `prepare_recording` / `register_segment` / `update_recording_state` / `finalize_recording` / `recover_recording`；片段按序号幂等，最终化流式拼成逻辑音频 |
+| 任务队列 | 入队、按优先级领取、成功/失败/退避重试、手动重试、取消、下次唤醒时刻、通知去重；`commit_with_jobs` 保证提交与入队同事务 |
 | 错误码 | 映射到契约第 7 节，含 `SQLITE_FULL` → `storage_full`、ENOSPC → `storage_full` |
+| 时间精度 | 所有对外返回的时间统一截断到毫秒，保证「写进去的」和「读出来的」相等 |
 
 ## 还没实现
 
-录音会话与队列（B1c）、提取/索引/搜索（B2）、插件、备份恢复、桥接接线。
+任务执行（B5）、提取/索引/搜索（B2）、插件、备份恢复、桥接接线。
 
 ## 校验
 
 ```bash
-cargo test -p diary_core        # 30 项：12 文件库 + 16 记录 + 2 单测
+cargo test -p diary_core        # 45 项：15 录音与任务 + 12 文件库 + 16 记录 + 2 单测
 cargo clippy -p diary_core --all-targets -- -D warnings
 ```
 

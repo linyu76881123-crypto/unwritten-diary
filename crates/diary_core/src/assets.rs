@@ -29,8 +29,8 @@ use crate::model::{
 use crate::support;
 use crate::Core;
 
-/// 流式哈希的缓冲区。内存占用与文件大小无关。
-const BUFFER_BYTES: usize = 64 * 1024;
+/// 流式哈希与拼接的缓冲区。内存占用与文件大小无关。
+pub(crate) const CONCAT_BUFFER_BYTES: usize = 64 * 1024;
 
 /// 租约有效期。
 const LEASE_MINUTES: i64 = 10;
@@ -86,7 +86,7 @@ pub(crate) fn prepare(core: &mut Core, request: ImportRequest<'_>) -> Result<Imp
         max_bytes: request.size_hint,
     };
 
-    let now = support::to_iso(Utc::now());
+    let now = support::to_iso(support::now());
     let tx = core.conn.transaction()?;
     tx.execute(
         "INSERT INTO import_sessions (id, capture_id, display_name, mime_hint, size_hint, origin, \
@@ -155,8 +155,10 @@ pub(crate) fn finish(
             core,
             import_id,
             CoreError::IntegrityFailed {
-                declared: manifest.copied_bytes,
-                actual: actual_bytes,
+                reason: format!(
+                    "复制的字节数与声明不一致：声明 {}，实际 {actual_bytes}",
+                    manifest.copied_bytes
+                ),
             },
         );
     }
@@ -167,8 +169,7 @@ pub(crate) fn finish(
             core,
             import_id,
             CoreError::IntegrityFailed {
-                declared: i64::from(actual_sha.len() as i32),
-                actual: actual_sha.len() as i64,
+                reason: "复制完成后的内容哈希与声明不符".to_owned(),
             },
         );
     }
@@ -191,7 +192,7 @@ pub(crate) fn finish(
         })?;
     }
 
-    let now = Utc::now();
+    let now = support::now();
     let asset_id = support::new_id("asset");
     let source_id = support::new_id("src");
     let revision_id = support::new_id("rev");
@@ -329,7 +330,7 @@ pub(crate) fn open_asset(core: &mut Core, asset_id: &str, usage: &str) -> Result
     }
 
     let lease_id = support::new_id("lease");
-    let expires_at = Utc::now() + Duration::minutes(LEASE_MINUTES);
+    let expires_at = support::now() + Duration::minutes(LEASE_MINUTES);
     let handle_text = handle.to_string_lossy().into_owned();
     core.leases.insert(
         lease_id.clone(),
@@ -351,7 +352,7 @@ pub(crate) fn open_asset(core: &mut Core, asset_id: &str, usage: &str) -> Result
 
 /// 丢掉已经过期的租约。租约过期不代表文件被删，只是句柄不再有效。
 pub(crate) fn reap_expired_leases(core: &mut Core) -> usize {
-    let now = Utc::now();
+    let now = support::now();
     let before = core.leases.len();
     core.leases.retain(|_, record| record.expires_at > now);
     before - core.leases.len()
@@ -386,7 +387,7 @@ pub(crate) fn recover_on_open(conn: &Connection) -> Result<usize> {
     let changed = conn.execute(
         "UPDATE import_sessions SET state = 'recoverable', updated_at = ?1 \
          WHERE state IN ('prepared', 'copying', 'verifying')",
-        params![support::to_iso(Utc::now())],
+        params![support::to_iso(support::now())],
     )?;
     Ok(changed)
 }
@@ -402,7 +403,7 @@ fn fail(core: &mut Core, import_id: &str, error: CoreError) -> Result<ImportStat
         params![
             code.wire(),
             message,
-            support::to_iso(Utc::now()),
+            support::to_iso(support::now()),
             import_id
         ],
     )?;
@@ -410,7 +411,7 @@ fn fail(core: &mut Core, import_id: &str, error: CoreError) -> Result<ImportStat
     Err(error)
 }
 
-fn blob_rel_path(sha256: &str) -> String {
+pub(crate) fn blob_rel_path(sha256: &str) -> String {
     let prefix = &sha256[..2.min(sha256.len())];
     format!("blobs/{prefix}/{sha256}")
 }
@@ -428,10 +429,10 @@ fn kind_for_mime(mime: &str) -> &'static str {
 }
 
 /// 流式算 sha256：内存占用与文件大小无关。
-fn hash_file(path: &Path) -> Result<String> {
+pub(crate) fn hash_file(path: &Path) -> Result<String> {
     let mut file = fs::File::open(path)?;
     let mut hasher = Sha256::new();
-    let mut buffer = vec![0_u8; BUFFER_BYTES];
+    let mut buffer = vec![0_u8; CONCAT_BUFFER_BYTES];
     loop {
         let read = file.read(&mut buffer)?;
         if read == 0 {

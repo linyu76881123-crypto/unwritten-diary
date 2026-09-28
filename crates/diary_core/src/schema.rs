@@ -7,7 +7,7 @@
 use rusqlite::{params, Connection};
 
 /// 本构建支持的 schema 版本。
-pub const SCHEMA_VERSION: i64 = 2;
+pub const SCHEMA_VERSION: i64 = 3;
 
 /// 迁移到最新版本。已经是最新则什么都不做。
 pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
@@ -30,10 +30,13 @@ pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
     if current < 2 {
         tx.execute_batch(V2)?;
     }
+    if current < 3 {
+        tx.execute_batch(V3)?;
+    }
     tx.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
     tx.execute(
         "INSERT INTO schema_migrations(version, applied_at) VALUES (?1, ?2)",
-        params![SCHEMA_VERSION, crate::support::to_iso(chrono::Utc::now())],
+        params![SCHEMA_VERSION, crate::support::to_iso(crate::support::now())],
     )?;
     tx.commit()
 }
@@ -148,4 +151,78 @@ CREATE TABLE import_sessions (
     updated_at       TEXT NOT NULL
 );
 CREATE INDEX idx_import_sessions_state ON import_sessions(state, created_at);
+"#;
+
+/// v3：录音会话与持久任务队列。
+///
+/// `recording_segments` 用 (recording_id, segment_index) 做主键：重复登记同一序号
+/// 天然只会有一条，冲突与否靠内容指纹判断。`jobs` 是持久队列，重启后仍在；
+/// `job_attempts` 记录每一次尝试的结局，便于排查「为什么重试了五次」。
+const V3: &str = r#"
+CREATE TABLE recording_sessions (
+    id                 TEXT PRIMARY KEY,
+    capture_id         TEXT NOT NULL REFERENCES captures(id) ON DELETE CASCADE,
+    asset_id           TEXT NOT NULL,
+    staging_rel_path   TEXT NOT NULL,
+    state              TEXT NOT NULL,
+    started_at         TEXT NOT NULL,
+    ended_at           TEXT,
+    last_segment_index INTEGER NOT NULL DEFAULT -1,
+    elapsed_ms         INTEGER NOT NULL DEFAULT 0,
+    durable_through_ms INTEGER NOT NULL DEFAULT 0,
+    end_reason         TEXT,
+    error_code         TEXT,
+    error_message      TEXT,
+    updated_at         TEXT NOT NULL
+);
+CREATE INDEX idx_recording_sessions_state ON recording_sessions(state, started_at);
+
+CREATE TABLE recording_segments (
+    recording_id       TEXT NOT NULL REFERENCES recording_sessions(id) ON DELETE CASCADE,
+    segment_index      INTEGER NOT NULL,
+    segment_id         TEXT NOT NULL,
+    relative_file_name TEXT NOT NULL,
+    duration_ms        INTEGER NOT NULL,
+    byte_size          INTEGER NOT NULL,
+    sha256             TEXT NOT NULL,
+    content_fingerprint TEXT NOT NULL,
+    closed_at          TEXT NOT NULL,
+    PRIMARY KEY (recording_id, segment_index)
+);
+
+CREATE TABLE jobs (
+    id                  TEXT PRIMARY KEY,
+    kind                TEXT NOT NULL,
+    state               TEXT NOT NULL,
+    priority            INTEGER NOT NULL,
+    target_ids          TEXT NOT NULL,
+    input_snapshot_hash TEXT,
+    progress_completed  INTEGER,
+    progress_total      INTEGER,
+    attempt_count       INTEGER NOT NULL DEFAULT 0,
+    max_attempts        INTEGER NOT NULL DEFAULT 5,
+    next_attempt_at     TEXT,
+    error_code          TEXT,
+    requires_user_action INTEGER NOT NULL DEFAULT 0,
+    attention_key       TEXT,
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL
+);
+CREATE INDEX idx_jobs_due ON jobs(state, priority DESC, next_attempt_at, created_at);
+
+CREATE TABLE job_attempts (
+    job_id      TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+    attempt     INTEGER NOT NULL,
+    started_at  TEXT NOT NULL,
+    finished_at TEXT,
+    outcome     TEXT,
+    error_code  TEXT,
+    message     TEXT,
+    PRIMARY KEY (job_id, attempt)
+);
+
+CREATE TABLE attention_acks (
+    attention_key   TEXT PRIMARY KEY,
+    acknowledged_at TEXT NOT NULL
+);
 "#;
