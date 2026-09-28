@@ -12,7 +12,9 @@
 
 mod assets;
 mod error;
+mod jobs;
 mod model;
+mod recordings;
 mod schema;
 mod support;
 
@@ -21,7 +23,10 @@ pub use error::{CoreError, ErrorCode, Result};
 pub use model::{
     Asset, AssetLease, AssetStorageState, AuthorType, Capture, CapturePage, CaptureState,
     CommitResult, DomainEvent, DraftSaveResult, EventType, ImportManifest, ImportOrigin,
-    ImportState, ImportStatus, ImportTicket, ProcessingSummary, SourceItem, SourceRevision,
+    ImportState, ImportStatus, ImportTicket, Job, JobPriority, JobProgress, JobState,
+    NativeRecordingStatus, NewJob, ProcessingSummary, RecordingFinalizeResult,
+    RecordingRecovery, RecordingSession, RecordingState, RecordingTicket, SegmentManifest,
+    SegmentReceipt, SourceItem, SourceRevision,
 };
 pub use schema::SCHEMA_VERSION;
 
@@ -93,8 +98,9 @@ impl Core {
         if let Some(dir) = &root {
             std::fs::create_dir_all(dir)?;
         }
-        // 收拾上次没走完的导入：标成 recoverable，由调用方决定重试还是取消。
+        // 收拾上次没走完的导入与录音：都如实标成「没完成」，不假装成功。
         assets::recover_on_open(&conn)?;
+        recordings::recover_on_open(&conn)?;
         Ok(Self {
             conn,
             root,
@@ -141,7 +147,7 @@ impl Core {
             return Ok(serde_json::from_str(&json)?);
         }
 
-        let now = Utc::now();
+        let now = support::now();
         let occurred_at = input.occurred_at.unwrap_or(now);
         let capture = Capture {
             id: support::new_id("cap"),
@@ -216,7 +222,7 @@ impl Core {
             });
         }
 
-        let now = Utc::now();
+        let now = support::now();
         let new_revision = capture.revision + 1;
         let result = DraftSaveResult {
             revision: new_revision,
@@ -249,11 +255,32 @@ impl Core {
         expected_revision: i64,
         operation_id: &str,
     ) -> Result<CommitResult> {
-        let fingerprint = support::fingerprint(&[
-            "commit",
-            capture_id,
-            &expected_revision.to_string(),
-        ]);
+        self.commit_with_jobs(capture_id, expected_revision, operation_id, &[])
+    }
+
+    /// 提交记录，并**在同一个事务里**入队若干任务。
+    ///
+    /// 任务书 3.2 节要求「核心提交数据与对应的待处理任务/出站事件记录应在同一数据库
+    /// 事务中完成」，否则会出现「资料已保存，索引任务却永远丢了」。
+    pub fn commit_with_jobs(
+        &mut self,
+        capture_id: &str,
+        expected_revision: i64,
+        operation_id: &str,
+        jobs_to_queue: &[NewJob],
+    ) -> Result<CommitResult> {
+        let mut parts: Vec<String> = vec![
+            "commit".to_owned(),
+            capture_id.to_owned(),
+            expected_revision.to_string(),
+        ];
+        for job in jobs_to_queue {
+            parts.push(job.kind.clone());
+            parts.push(job.priority.value().to_string());
+            parts.push(job.target_ids.join(","));
+        }
+        let fingerprint =
+            support::fingerprint(&parts.iter().map(String::as_str).collect::<Vec<_>>());
         if let Some(json) = self.receipt("commit", &fingerprint, operation_id)? {
             return Ok(serde_json::from_str(&json)?);
         }
@@ -268,7 +295,7 @@ impl Core {
             });
         }
 
-        let now = Utc::now();
+        let now = support::now();
         let new_revision = capture.revision + 1;
         let mut ordered = capture.ordered_source_ids.clone();
         let mut original_text_revision = None;
@@ -318,6 +345,12 @@ impl Core {
             params![new_revision, support::to_iso(now), capture.id],
         )?;
 
+        // 任务与提交同一个事务：要么都成，要么都不成。
+        let mut queued_job_ids = Vec::new();
+        for job in jobs_to_queue {
+            queued_job_ids.push(jobs::enqueue_in_tx(&tx, job.clone())?.id);
+        }
+
         let result = CommitResult {
             capture: committed,
             original_text_revision,
@@ -330,6 +363,9 @@ impl Core {
             &serde_json::to_string(&result)?,
         )?;
         insert_event(&tx, EventType::CaptureChanged, &capture.id, new_revision)?;
+        for job_id in &queued_job_ids {
+            insert_event(&tx, EventType::JobChanged, job_id, 1)?;
+        }
         tx.commit()?;
         Ok(result)
     }
@@ -364,7 +400,7 @@ impl Core {
             });
         }
 
-        let now = Utc::now();
+        let now = support::now();
         let revision = SourceRevision {
             revision_id: support::new_id("rev"),
             source_id: source_id.to_owned(),
@@ -476,6 +512,106 @@ impl Core {
             captures,
             next_cursor,
         })
+    }
+
+    // ------------------------------------------------------------ 录音
+
+    /// 申请录音票据与限域暂存目录，契约第 4.2 节 `recordings.prepare`。
+    pub fn prepare_recording(&mut self, capture_id: &str, operation_id: &str) -> Result<RecordingTicket> {
+        recordings::prepare(self, capture_id, operation_id)
+    }
+
+    /// 登记一个已封闭片段。重复登记同一序号返回原回执，内容不一致报冲突。
+    pub fn register_segment(
+        &mut self,
+        recording_id: &str,
+        segment_index: i64,
+        segment: SegmentManifest,
+    ) -> Result<SegmentReceipt> {
+        recordings::register_segment(self, recording_id, segment_index, segment)
+    }
+
+    /// 上报原生录音状态。后端不虚构麦克风状态。
+    pub fn update_recording_state(&mut self, status: NativeRecordingStatus) -> Result<RecordingSession> {
+        recordings::update_state(self, status)
+    }
+
+    /// 最终化：拼出逻辑音频、建资产，并在同一事务里排一个转写任务。
+    pub fn finalize_recording(
+        &mut self,
+        recording_id: &str,
+        last_segment_index: i64,
+        end_reason: &str,
+    ) -> Result<RecordingFinalizeResult> {
+        recordings::finalize(self, recording_id, last_segment_index, end_reason)
+    }
+
+    /// 恢复：不假设最后一段完好，缺口如实报告。
+    pub fn recover_recording(&self, recording_id: Option<&str>) -> Result<RecordingRecovery> {
+        recordings::recover(self, recording_id)
+    }
+
+    pub fn recording_session(&self, recording_id: &str) -> Result<RecordingSession> {
+        recordings::session(self, recording_id)
+    }
+
+    // ------------------------------------------------------------ 任务队列
+
+    pub fn enqueue_job(&mut self, job: NewJob) -> Result<Job> {
+        jobs::enqueue(self, job)
+    }
+
+    pub fn get_job(&self, job_id: &str) -> Result<Job> {
+        jobs::get(self, job_id)
+    }
+
+    /// 按状态筛选列出任务，按优先级与创建时间排序。
+    pub fn list_jobs(&self, states: Option<&[JobState]>, limit: usize) -> Result<Vec<Job>> {
+        jobs::list(self, states, limit)
+    }
+
+    /// 领取下一个到期任务：优先级高的先跑。执行本身属于后面的切片。
+    pub fn claim_next_due_job(&mut self, now: DateTime<Utc>) -> Result<Option<Job>> {
+        jobs::claim_next_due(self, now)
+    }
+
+    pub fn complete_job(&mut self, job_id: &str) -> Result<Job> {
+        jobs::complete(self, job_id)
+    }
+
+    /// 任务失败：还有额度就退避重试，用完了进 failed。
+    pub fn fail_job(
+        &mut self,
+        job_id: &str,
+        error_code: &str,
+        message: &str,
+        now: DateTime<Utc>,
+    ) -> Result<Job> {
+        jobs::fail(self, job_id, error_code, message, now)
+    }
+
+    /// 手动重试。额度用完了会多给一次机会，并如实记录。
+    pub fn retry_job(&mut self, job_id: &str, operation_id: &str) -> Result<Job> {
+        jobs::retry(self, job_id, operation_id)
+    }
+
+    /// 取消任务。取消不删除任何原件。
+    pub fn cancel_job(&mut self, job_id: &str, operation_id: &str) -> Result<Job> {
+        jobs::cancel(self, job_id, operation_id)
+    }
+
+    /// 建议的下次唤醒时刻；没有待办时为 None。
+    pub fn next_wakeup(&self) -> Result<Option<DateTime<Utc>>> {
+        jobs::next_wakeup(self)
+    }
+
+    /// 记录一个需处理的问题已展示过，避免每次重开重复通知。
+    pub fn acknowledge_attention(&mut self, attention_key: &str) -> Result<()> {
+        jobs::acknowledge_attention(self, attention_key)
+    }
+
+    pub fn is_attention_acknowledged(&self, attention_key: &str) -> Result<bool> {
+        jobs::is_attention_acknowledged(self, attention_key)
     }
 
     // ------------------------------------------------------------ 原件与导入
@@ -631,7 +767,7 @@ fn store_receipt(
             kind,
             fingerprint,
             result_json,
-            support::to_iso(Utc::now())
+            support::to_iso(support::now())
         ],
     )?;
     Ok(())
@@ -651,7 +787,7 @@ fn insert_event(
             event_type.wire(),
             entity_id,
             revision,
-            support::to_iso(Utc::now())
+            support::to_iso(support::now())
         ],
     )?;
     Ok(())

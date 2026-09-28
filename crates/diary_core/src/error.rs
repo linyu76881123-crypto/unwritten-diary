@@ -66,8 +66,8 @@ pub enum CoreError {
     #[error("资产不可用：{asset_id}（{reason}）")]
     AssetMissing { asset_id: String, reason: String },
 
-    #[error("复制的字节与声明不一致：声明 {declared}，实际 {actual}")]
-    IntegrityFailed { declared: i64, actual: i64 },
+    #[error("完整性校验失败：{reason}")]
+    IntegrityFailed { reason: String },
 
     #[error("文件操作失败：{0}")]
     Io(#[from] std::io::Error),
