@@ -18,6 +18,12 @@ pub enum ErrorCode {
     IdempotencyConflict,
     /// 磁盘空间不足。
     StorageFull,
+    /// 资产在库里有记录，但文件已经不可用。
+    AssetMissing,
+    /// 文件系统权限不允许这次操作。
+    PermissionDenied,
+    /// 复制过来的字节与调用方声明的不一致。
+    IntegrityFailed,
 }
 
 impl ErrorCode {
@@ -28,6 +34,9 @@ impl ErrorCode {
             Self::RevisionConflict => "revision_conflict",
             Self::IdempotencyConflict => "idempotency_conflict",
             Self::StorageFull => "storage_full",
+            Self::AssetMissing => "asset_missing",
+            Self::PermissionDenied => "permission_denied",
+            Self::IntegrityFailed => "integrity_failed",
         }
     }
 }
@@ -54,6 +63,15 @@ pub enum CoreError {
     #[error("磁盘空间不足")]
     StorageFull,
 
+    #[error("资产不可用：{asset_id}（{reason}）")]
+    AssetMissing { asset_id: String, reason: String },
+
+    #[error("复制的字节与声明不一致：声明 {declared}，实际 {actual}")]
+    IntegrityFailed { declared: i64, actual: i64 },
+
+    #[error("文件操作失败：{0}")]
+    Io(#[from] std::io::Error),
+
     #[error("库里的数据不合法：{message}")]
     CorruptedData { message: String },
 
@@ -73,6 +91,9 @@ impl CoreError {
             Self::RevisionConflict { .. } => ErrorCode::RevisionConflict,
             Self::IdempotencyConflict { .. } => ErrorCode::IdempotencyConflict,
             Self::StorageFull => ErrorCode::StorageFull,
+            Self::AssetMissing { .. } => ErrorCode::AssetMissing,
+            Self::IntegrityFailed { .. } => ErrorCode::IntegrityFailed,
+            Self::Io(err) => io_code(err),
             Self::CorruptedData { .. } | Self::Serialization(_) => ErrorCode::InvalidState,
             Self::Database(err) => database_code(err),
         }
@@ -81,6 +102,20 @@ impl CoreError {
     /// 是否值得原样重试。磁盘满、版本冲突这些重试也不会好。
     pub fn retryable(&self) -> bool {
         false
+    }
+}
+
+/// 文件系统错误也要落到具体码上：空间不足、权限不足都不是同一件事。
+fn io_code(err: &std::io::Error) -> ErrorCode {
+    // ENOSPC 在 Linux 与 Android 上都是 28。
+    const ENOSPC: i32 = 28;
+    match err.kind() {
+        std::io::ErrorKind::PermissionDenied => ErrorCode::PermissionDenied,
+        std::io::ErrorKind::NotFound => ErrorCode::AssetMissing,
+        _ => match err.raw_os_error() {
+            Some(ENOSPC) => ErrorCode::StorageFull,
+            _ => ErrorCode::IntegrityFailed,
+        },
     }
 }
 

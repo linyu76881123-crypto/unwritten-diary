@@ -164,3 +164,178 @@ pub struct DomainEvent {
     pub revision: i64,
     pub emitted_at: DateTime<Utc>,
 }
+/// 导入状态，契约第 3 节「导入」行。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ImportState {
+    Prepared,
+    Copying,
+    Verifying,
+    Ready,
+    /// 进程中断，暂存文件可能还在，等调用方决定重试或取消。
+    Recoverable,
+    Error,
+}
+
+impl ImportState {
+    pub fn wire(self) -> &'static str {
+        match self {
+            Self::Prepared => "prepared",
+            Self::Copying => "copying",
+            Self::Verifying => "verifying",
+            Self::Ready => "ready",
+            Self::Recoverable => "recoverable",
+            Self::Error => "error",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "prepared" => Some(Self::Prepared),
+            "copying" => Some(Self::Copying),
+            "verifying" => Some(Self::Verifying),
+            "ready" => Some(Self::Ready),
+            "recoverable" => Some(Self::Recoverable),
+            "error" => Some(Self::Error),
+            _ => None,
+        }
+    }
+
+    /// 还没结束的导入（重启后要处理的那批）。
+    pub fn is_in_flight(self) -> bool {
+        matches!(self, Self::Prepared | Self::Copying | Self::Verifying)
+    }
+}
+
+/// 资产在文件库中的状态，契约第 2.3 节。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssetStorageState {
+    Importing,
+    Ready,
+    Recoverable,
+    Missing,
+    Trashed,
+}
+
+impl AssetStorageState {
+    pub fn wire(self) -> &'static str {
+        match self {
+            Self::Importing => "importing",
+            Self::Ready => "ready",
+            Self::Recoverable => "recoverable",
+            Self::Missing => "missing",
+            Self::Trashed => "trashed",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "importing" => Some(Self::Importing),
+            "ready" => Some(Self::Ready),
+            "recoverable" => Some(Self::Recoverable),
+            "missing" => Some(Self::Missing),
+            "trashed" => Some(Self::Trashed),
+            _ => None,
+        }
+    }
+}
+
+/// 资产来源方式，契约第 2.3 节。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ImportOrigin {
+    Picker,
+    Camera,
+    Paste,
+    Drop,
+    Share,
+    Recording,
+    Restore,
+}
+
+impl ImportOrigin {
+    pub fn wire(self) -> &'static str {
+        match self {
+            Self::Picker => "picker",
+            Self::Camera => "camera",
+            Self::Paste => "paste",
+            Self::Drop => "drop",
+            Self::Share => "share",
+            Self::Recording => "recording",
+            Self::Restore => "restore",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "picker" => Some(Self::Picker),
+            "camera" => Some(Self::Camera),
+            "paste" => Some(Self::Paste),
+            "drop" => Some(Self::Drop),
+            "share" => Some(Self::Share),
+            "recording" => Some(Self::Recording),
+            "restore" => Some(Self::Restore),
+            _ => None,
+        }
+    }
+}
+
+/// 导入票据。`staging_ticket` 是平台层唯一被允许写入的位置。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImportTicket {
+    pub import_id: String,
+    pub staging_ticket: String,
+    pub max_bytes: Option<i64>,
+}
+
+/// 复制完成信息：调用方声明它写了多少、算出的哈希是什么。
+///
+/// 核心**不会**直接相信这些数字，它会自己流式重算一遍再比对。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImportManifest {
+    pub copied_bytes: i64,
+    pub sha256: String,
+    pub detected_mime: String,
+    pub original_name: String,
+}
+
+/// 导入状态。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImportStatus {
+    pub import_id: String,
+    pub state: ImportState,
+    pub copied_bytes: i64,
+    pub total_bytes: i64,
+    pub asset_id: Option<String>,
+    pub error_code: Option<String>,
+    pub message: Option<String>,
+}
+
+/// 文件库资产，契约第 2.3 节。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Asset {
+    pub id: String,
+    pub sha256: String,
+    pub object_ref: String,
+    pub original_name: String,
+    pub detected_mime: String,
+    pub byte_size: i64,
+    pub storage_state: AssetStorageState,
+    pub import_origin: ImportOrigin,
+    pub created_at: DateTime<Utc>,
+    pub media_duration_ms: Option<i64>,
+    pub width: Option<i64>,
+    pub height: Option<i64>,
+}
+
+/// 只读资产租约。`handle` 是应用私有目录里的绝对路径，不是外部来源路径。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AssetLease {
+    pub lease_id: String,
+    pub asset_id: String,
+    pub usage: String,
+    pub handle: String,
+    pub expires_at: DateTime<Utc>,
+    pub byte_size: i64,
+}

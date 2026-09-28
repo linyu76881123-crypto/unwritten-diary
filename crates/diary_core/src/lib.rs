@@ -10,17 +10,23 @@
 //! 3. **乐观锁**：带 expectedRevision 的写入不匹配就报 `revision_conflict`，
 //!    绝不静默覆盖用户内容。
 
+mod assets;
 mod error;
 mod model;
 mod schema;
 mod support;
 
+pub use assets::ImportRequest;
 pub use error::{CoreError, ErrorCode, Result};
 pub use model::{
-    AuthorType, Capture, CapturePage, CaptureState, CommitResult, DomainEvent, DraftSaveResult,
-    EventType, ProcessingSummary, SourceItem, SourceRevision,
+    Asset, AssetLease, AssetStorageState, AuthorType, Capture, CapturePage, CaptureState,
+    CommitResult, DomainEvent, DraftSaveResult, EventType, ImportManifest, ImportOrigin,
+    ImportState, ImportStatus, ImportTicket, ProcessingSummary, SourceItem, SourceRevision,
 };
 pub use schema::SCHEMA_VERSION;
+
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
@@ -40,6 +46,10 @@ pub struct CreateDraftInput<'a> {
 /// 资料库句柄。
 pub struct Core {
     conn: Connection,
+    /// 文件库根目录：资料库文件所在目录。内存库没有根目录，导入相关方法会报错。
+    root: Option<PathBuf>,
+    /// 只读租约，内存态，不持久化。
+    leases: HashMap<String, assets::LeaseRecord>,
 }
 
 /// 一行的原始形态：先取出来，再按业务语义解析，避免把解析错误塞进 SQL 层。
@@ -49,17 +59,30 @@ const CAPTURE_COLUMNS: &str = "id, revision, state, occurred_at, created_at, upd
                                 time_zone, utc_offset_minutes, day_key, draft_text";
 
 impl Core {
-    /// 打开（或创建）指定路径的资料库。
+    /// 打开（或创建）指定路径的资料库。文件库根目录就是它所在的目录。
     pub fn open(path: impl AsRef<std::path::Path>) -> Result<Self> {
-        Self::prepare(Connection::open(path)?)
+        let path = path.as_ref();
+        let root = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .map_or_else(|| PathBuf::from("."), std::path::Path::to_path_buf);
+        Self::prepare(Connection::open(path)?, Some(root))
     }
 
-    /// 内存库，只用于测试。
+    /// 内存库，只用于测试。没有文件系统根目录，导入相关方法会报 `invalid_state`。
     pub fn open_in_memory() -> Result<Self> {
-        Self::prepare(Connection::open_in_memory()?)
+        Self::prepare(Connection::open_in_memory()?, None)
     }
 
-    fn prepare(mut conn: Connection) -> Result<Self> {
+    /// 内存库 + 一个文件系统根目录，用于测试导入而不必落一个真库文件。
+    pub fn open_in_memory_at(root: impl AsRef<std::path::Path>) -> Result<Self> {
+        Self::prepare(
+            Connection::open_in_memory()?,
+            Some(root.as_ref().to_path_buf()),
+        )
+    }
+
+    fn prepare(mut conn: Connection, root: Option<PathBuf>) -> Result<Self> {
         // WAL 提高并发读写表现；synchronous=FULL 保证「提交了就是落盘了」，
         // 只用 NORMAL 会让进程崩溃时丢掉最后几个事务，与 durable 承诺不符。
         conn.pragma_update(None, "journal_mode", "WAL")?;
@@ -67,7 +90,25 @@ impl Core {
         conn.pragma_update(None, "foreign_keys", "ON")?;
         conn.busy_timeout(std::time::Duration::from_secs(5))?;
         schema::migrate(&mut conn)?;
-        Ok(Self { conn })
+        if let Some(dir) = &root {
+            std::fs::create_dir_all(dir)?;
+        }
+        // 收拾上次没走完的导入：标成 recoverable，由调用方决定重试还是取消。
+        assets::recover_on_open(&conn)?;
+        Ok(Self {
+            conn,
+            root,
+            leases: HashMap::new(),
+        })
+    }
+
+    /// 文件库根目录。内存库没有根目录，导入相关方法会因此报错。
+    pub(crate) fn root_dir(&self) -> Result<&std::path::Path> {
+        self.root.as_deref().ok_or_else(|| CoreError::InvalidState {
+            entity: "资料库",
+            id: "<内存库>".to_owned(),
+            state: "内存库没有文件系统根目录，不能导入原件".to_owned(),
+        })
     }
 
     pub fn schema_version(&self) -> Result<i64> {
@@ -435,6 +476,63 @@ impl Core {
             captures,
             next_cursor,
         })
+    }
+
+    // ------------------------------------------------------------ 原件与导入
+
+    /// 申请导入暂存位置，契约第 4.2 节 `imports.prepare`。
+    pub fn prepare_import(&mut self, request: ImportRequest<'_>) -> Result<ImportTicket> {
+        assets::prepare(self, request)
+    }
+
+    /// 声明复制完成，契约第 4.2 节 `imports.finish`。
+    ///
+    /// 核心会自己重算哈希；对不上就报 `integrity_failed` 并保留暂存文件。
+    pub fn finish_import(
+        &mut self,
+        import_id: &str,
+        staging_ticket: &str,
+        manifest: ImportManifest,
+    ) -> Result<ImportStatus> {
+        assets::finish(self, import_id, staging_ticket, manifest)
+    }
+
+    pub fn import_status(&self, import_id: &str) -> Result<ImportStatus> {
+        assets::status(self, import_id)
+    }
+
+    /// 取消导入，不影响其他已导入的材料。
+    pub fn cancel_import(&mut self, import_id: &str) -> Result<()> {
+        assets::cancel(self, import_id)
+    }
+
+    /// 打开只读租约，契约第 4.2 节 `assets.open`。
+    pub fn open_asset(&mut self, asset_id: &str, usage: &str) -> Result<AssetLease> {
+        assets::open_asset(self, asset_id, usage)
+    }
+
+    pub fn release_asset(&mut self, lease_id: &str) -> Result<()> {
+        assets::release_asset(self, lease_id)
+    }
+
+    /// 资产数量与内容存储占用的字节数。
+    pub fn asset_stats(&self) -> Result<(i64, i64)> {
+        assets::asset_stats(self)
+    }
+
+    /// 当前未释放的租约数量。租约是内存态，进程重启后归零。
+    pub fn active_lease_count(&self) -> usize {
+        assets::active_leases(&self.leases)
+    }
+
+    /// 当前未释放的租约句柄（租约 id → 文件路径），按 id 排序。
+    pub fn lease_handles(&self) -> Vec<(String, String)> {
+        assets::lease_handles(self)
+    }
+
+    /// 丢弃过期租约，返回丢弃的数量。
+    pub fn reap_expired_leases(&mut self) -> usize {
+        assets::reap_expired_leases(self)
     }
 
     /// 从序号之后读取事件，契约第 6 节。

@@ -7,7 +7,7 @@
 use rusqlite::{params, Connection};
 
 /// 本构建支持的 schema 版本。
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 
 /// 迁移到最新版本。已经是最新则什么都不做。
 pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
@@ -26,6 +26,9 @@ pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
     let tx = conn.transaction()?;
     if current < 1 {
         tx.execute_batch(V1)?;
+    }
+    if current < 2 {
+        tx.execute_batch(V2)?;
     }
     tx.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
     tx.execute(
@@ -96,4 +99,53 @@ CREATE TABLE domain_events (
     emitted_at TEXT NOT NULL
 );
 CREATE INDEX idx_domain_events_entity ON domain_events(entity_id, sequence);
+"#;
+/// v2：原件文件库与导入会话。
+///
+/// `blobs` 是按 sha256 索引的内容存储，导入相同内容时复用同一条 blob；
+/// `assets` 是用户的导入记录，指向 blob；`import_sessions` 是可恢复的导入日志，
+/// 它在文件系统与数据库之间充当协调记录（两者不是一个事务）。
+const V2: &str = r#"
+CREATE TABLE blobs (
+    sha256     TEXT PRIMARY KEY,
+    object_ref TEXT NOT NULL UNIQUE,
+    byte_size  INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE assets (
+    id              TEXT PRIMARY KEY,
+    sha256          TEXT NOT NULL REFERENCES blobs(sha256),
+    object_ref      TEXT NOT NULL,
+    original_name   TEXT NOT NULL,
+    detected_mime   TEXT NOT NULL,
+    byte_size       INTEGER NOT NULL,
+    storage_state   TEXT NOT NULL,
+    import_origin   TEXT NOT NULL,
+    created_at      TEXT NOT NULL,
+    media_duration_ms INTEGER,
+    width           INTEGER,
+    height          INTEGER
+);
+CREATE INDEX idx_assets_sha ON assets(sha256);
+
+CREATE TABLE import_sessions (
+    id               TEXT PRIMARY KEY,
+    capture_id       TEXT NOT NULL REFERENCES captures(id) ON DELETE CASCADE,
+    asset_id         TEXT,
+    display_name     TEXT NOT NULL,
+    mime_hint        TEXT,
+    size_hint        INTEGER,
+    origin           TEXT NOT NULL,
+    staging_rel_path TEXT NOT NULL,
+    final_rel_path   TEXT,
+    state            TEXT NOT NULL,
+    copied_bytes     INTEGER NOT NULL DEFAULT 0,
+    sha256           TEXT,
+    error_code       TEXT,
+    error_message    TEXT,
+    created_at       TEXT NOT NULL,
+    updated_at       TEXT NOT NULL
+);
+CREATE INDEX idx_import_sessions_state ON import_sessions(state, created_at);
 "#;
