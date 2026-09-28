@@ -58,6 +58,8 @@ void main() {
         'permission_denied',
         'revision_conflict',
         'idempotency_conflict',
+        'not_found',
+        'invalid_state',
         'asset_missing',
         'unsupported_format',
         'provider_not_configured',

@@ -1,0 +1,101 @@
+//! 契约第 7 节的错误码与核心内部错误类型。
+//!
+//! 这里只放 B1a 用到的那几个码。`wire()` 的字符串必须与契约文档、
+//! `packages/diary_api` 的 `DiaryErrorCode` 以及桥接层保持一致。
+
+use thiserror::Error;
+
+/// 契约第 7 节的错误码。新增一个码等于改契约，必须先改文档与 Dart 枚举。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrorCode {
+    /// 目标不存在（例如已被清理）。
+    NotFound,
+    /// 当前状态不允许这个操作。
+    InvalidState,
+    /// 乐观锁版本不匹配。
+    RevisionConflict,
+    /// 同一个 operationId 被用于不同内容。
+    IdempotencyConflict,
+    /// 磁盘空间不足。
+    StorageFull,
+}
+
+impl ErrorCode {
+    pub fn wire(self) -> &'static str {
+        match self {
+            Self::NotFound => "not_found",
+            Self::InvalidState => "invalid_state",
+            Self::RevisionConflict => "revision_conflict",
+            Self::IdempotencyConflict => "idempotency_conflict",
+            Self::StorageFull => "storage_full",
+        }
+    }
+}
+
+/// 核心内部错误。用户可读的 message 与 retryable 由上层决定怎么呈现。
+#[derive(Debug, Error)]
+pub enum CoreError {
+    #[error("找不到{entity}：{id}")]
+    NotFound { entity: &'static str, id: String },
+
+    #[error("当前状态不允许该操作：{entity} {id} 处于 {state}")]
+    InvalidState {
+        entity: &'static str,
+        id: String,
+        state: String,
+    },
+
+    #[error("版本冲突：期望 revision {expected}，实际 {actual}")]
+    RevisionConflict { expected: i64, actual: i64 },
+
+    #[error("幂等冲突：operationId {operation_id} 已经用于不同的内容")]
+    IdempotencyConflict { operation_id: String },
+
+    #[error("磁盘空间不足")]
+    StorageFull,
+
+    #[error("库里的数据不合法：{message}")]
+    CorruptedData { message: String },
+
+    #[error("数据库错误：{0}")]
+    Database(#[from] rusqlite::Error),
+
+    #[error("序列化错误：{0}")]
+    Serialization(#[from] serde_json::Error),
+}
+
+impl CoreError {
+    /// 映射到契约错误码。凡是能对上契约的都要明确对上，不能含糊。
+    pub fn code(&self) -> ErrorCode {
+        match self {
+            Self::NotFound { .. } => ErrorCode::NotFound,
+            Self::InvalidState { .. } => ErrorCode::InvalidState,
+            Self::RevisionConflict { .. } => ErrorCode::RevisionConflict,
+            Self::IdempotencyConflict { .. } => ErrorCode::IdempotencyConflict,
+            Self::StorageFull => ErrorCode::StorageFull,
+            Self::CorruptedData { .. } | Self::Serialization(_) => ErrorCode::InvalidState,
+            Self::Database(err) => database_code(err),
+        }
+    }
+
+    /// 是否值得原样重试。磁盘满、版本冲突这些重试也不会好。
+    pub fn retryable(&self) -> bool {
+        false
+    }
+}
+
+/// SQLite 的错误要落到具体码上：空间不足不是「数据库坏了」。
+fn database_code(err: &rusqlite::Error) -> ErrorCode {
+    use rusqlite::ffi::ErrorCode as SqliteCode;
+    use rusqlite::Error::SqliteFailure;
+
+    match err {
+        SqliteFailure(failure, _) => match failure.code {
+            SqliteCode::DiskFull => ErrorCode::StorageFull,
+            _ => ErrorCode::InvalidState,
+        },
+        _ => ErrorCode::InvalidState,
+    }
+}
+
+pub type Result<T> = std::result::Result<T, CoreError>;
