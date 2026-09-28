@@ -624,3 +624,194 @@ impl NewJob {
         self
     }
 }
+
+/// 覆盖程度，契约第 2.4 节。用户可见原因放在 coverage_reason 里，不靠枚举表达。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Coverage {
+    Complete,
+    Partial,
+    MetadataOnly,
+    Unavailable,
+}
+
+impl Coverage {
+    pub fn wire(self) -> &'static str {
+        match self {
+            Self::Complete => "complete",
+            Self::Partial => "partial",
+            Self::MetadataOnly => "metadata_only",
+            Self::Unavailable => "unavailable",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "complete" => Some(Self::Complete),
+            "partial" => Some(Self::Partial),
+            "metadata_only" => Some(Self::MetadataOnly),
+            "unavailable" => Some(Self::Unavailable),
+            _ => None,
+        }
+    }
+}
+
+/// 派生内容的处理状态。取值沿用契约第 3 节「索引」行。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProcessingStatus {
+    Pending,
+    Processing,
+    Ready,
+    Partial,
+    Failed,
+    Stale,
+}
+
+impl ProcessingStatus {
+    pub fn wire(self) -> &'static str {
+        match self {
+            Self::Pending => "pending",
+            Self::Processing => "processing",
+            Self::Ready => "ready",
+            Self::Partial => "partial",
+            Self::Failed => "failed",
+            Self::Stale => "stale",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "pending" => Some(Self::Pending),
+            "processing" => Some(Self::Processing),
+            "ready" => Some(Self::Ready),
+            "partial" => Some(Self::Partial),
+            "failed" => Some(Self::Failed),
+            "stale" => Some(Self::Stale),
+            _ => None,
+        }
+    }
+}
+
+/// 定位类型，契约第 2.4 节。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LocatorType {
+    TextRange,
+    Audio,
+    Video,
+    Document,
+    Image,
+    File,
+}
+
+impl LocatorType {
+    pub fn wire(self) -> &'static str {
+        match self {
+            Self::TextRange => "text_range",
+            Self::Audio => "audio",
+            Self::Video => "video",
+            Self::Document => "document",
+            Self::Image => "image",
+            Self::File => "file",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "text_range" => Some(Self::TextRange),
+            "audio" => Some(Self::Audio),
+            "video" => Some(Self::Video),
+            "document" => Some(Self::Document),
+            "image" => Some(Self::Image),
+            "file" => Some(Self::File),
+            _ => None,
+        }
+    }
+}
+
+/// 定位信息。每个 locator 都带 sourceRevisionId，保证定位到当时的原文版本。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SourceLocator {
+    pub locator_type: LocatorType,
+    pub source_revision_id: String,
+    /// 文字区间：Unicode 标量值计数，左闭右开。
+    pub text_start: Option<i64>,
+    pub text_end: Option<i64>,
+    pub start_ms: Option<i64>,
+    pub end_ms: Option<i64>,
+    /// 页码从 1 开始；无法可靠定位时为 None，不伪造。
+    pub page_number: Option<i64>,
+    pub block_id: Option<String>,
+    /// 图片归一化矩形。
+    pub rect: Option<[f64; 4]>,
+    pub asset_id: Option<String>,
+}
+
+impl SourceLocator {
+    pub fn text_range(source_revision_id: &str, start: i64, end: i64) -> Self {
+        Self {
+            locator_type: LocatorType::TextRange,
+            source_revision_id: source_revision_id.to_owned(),
+            text_start: Some(start),
+            text_end: Some(end),
+            start_ms: None,
+            end_ms: None,
+            page_number: None,
+            block_id: None,
+            rect: None,
+            asset_id: None,
+        }
+    }
+
+    pub fn document(source_revision_id: &str, page_number: Option<i64>, block_id: Option<String>) -> Self {
+        Self {
+            locator_type: LocatorType::Document,
+            source_revision_id: source_revision_id.to_owned(),
+            text_start: None,
+            text_end: None,
+            start_ms: None,
+            end_ms: None,
+            page_number,
+            block_id,
+            rect: None,
+            asset_id: None,
+        }
+    }
+}
+
+/// 派生内容中的一个片段。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExtractedSegment {
+    pub ordinal: i64,
+    pub text: String,
+    pub locator: SourceLocator,
+}
+
+/// 可重建的派生内容，与原件分开保存，契约第 2.4 节。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExtractedContent {
+    pub id: String,
+    pub source_id: String,
+    pub source_revision_id: String,
+    pub extractor_id: String,
+    pub extractor_version: String,
+    pub text: String,
+    pub segments: Vec<ExtractedSegment>,
+    pub status: ProcessingStatus,
+    pub coverage: Coverage,
+    /// 用户可读的覆盖原因，例如「没有 OCR 能力，仅文件信息可搜」。
+    pub coverage_reason: Option<String>,
+    pub error_code: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+/// 定位结果：前端能否打开原件，以及不能打开时的真实原因。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SourceLocation {
+    pub source_ref: String,
+    pub locator: SourceLocator,
+    pub available: bool,
+    pub asset_id: Option<String>,
+    pub reason: Option<String>,
+}

@@ -14,7 +14,14 @@ sha2.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+encoding_rs.workspace = true
+chardetng.workspace = true
+zip.workspace = true
+quick-xml.workspace = true
+pdf-extract.workspace = true
 
 [dev-dependencies]
 tempfile = "3"
 sha2.workspace = true
+zip.workspace = true
+encoding_rs.workspace = true

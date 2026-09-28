@@ -1,8 +1,8 @@
 # diary_core
 
-设备内本地核心。当前完成到 **B1c**：资料库、迁移、幂等写入、记录路径、原件文件库与导入交接，以及录音会话与任务队列。
+设备内本地核心。当前完成到 **B2**：资料库、迁移、幂等写入、记录路径、原件文件库与导入交接、录音会话与任务队列，以及提取与来源定位。
 
-设计决定与未完成项记在 `docs/architecture/` 下三份记录：[m1-存储与幂等](../../docs/architecture/m1-存储与幂等.md)、[m1-原件文件库](../../docs/architecture/m1-原件文件库.md)、[m1-录音与队列](../../docs/architecture/m1-录音与队列.md)。
+设计决定与未完成项记在 `docs/architecture/`：[m1-存储与幂等](../../docs/architecture/m1-存储与幂等.md)、[m1-原件文件库](../../docs/architecture/m1-原件文件库.md)、[m1-录音与队列](../../docs/architecture/m1-录音与队列.md)、[m2-提取与定位](../../docs/architecture/m2-提取与定位.md)。
 
 ## 已实现
 
@@ -21,15 +21,17 @@
 | 任务队列 | 入队、按优先级领取、成功/失败/退避重试、手动重试、取消、下次唤醒时刻、通知去重；`commit_with_jobs` 保证提交与入队同事务 |
 | 错误码 | 映射到契约第 7 节，含 `SQLITE_FULL` → `storage_full`、ENOSPC → `storage_full` |
 | 时间精度 | 所有对外返回的时间统一截断到毫秒，保证「写进去的」和「读出来的」相等 |
+| 提取 | `extract_source`：纯文本（含 GBK 等编码检测）、Markdown、DOCX、文本 PDF、扫描件与无能力类型的如实降级；结果可重建 |
+| 来源定位 | `locate_source`：把来源 id 或修订 id 解析成可打开的原件与可用性 |
 
 ## 还没实现
 
-任务执行（B5）、提取/索引/搜索（B2）、插件、备份恢复、桥接接线。
+索引与检索（B3）、任务执行（B5）、转写与 OCR 真实能力（B4）、插件、备份恢复、桥接接线。
 
 ## 校验
 
 ```bash
-cargo test -p diary_core        # 45 项：15 录音与任务 + 12 文件库 + 16 记录 + 2 单测
+cargo test -p diary_core        # 57 项：12 提取 + 15 录音与任务 + 12 文件库 + 16 记录 + 2 单测
 cargo clippy -p diary_core --all-targets -- -D warnings
 ```
 

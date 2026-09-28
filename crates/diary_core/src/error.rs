@@ -24,6 +24,8 @@ pub enum ErrorCode {
     PermissionDenied,
     /// 复制过来的字节与调用方声明的不一致。
     IntegrityFailed,
+    /// 这个格式还提取不了正文。
+    UnsupportedFormat,
 }
 
 impl ErrorCode {
@@ -37,6 +39,7 @@ impl ErrorCode {
             Self::AssetMissing => "asset_missing",
             Self::PermissionDenied => "permission_denied",
             Self::IntegrityFailed => "integrity_failed",
+            Self::UnsupportedFormat => "unsupported_format",
         }
     }
 }
@@ -69,6 +72,9 @@ pub enum CoreError {
     #[error("完整性校验失败：{reason}")]
     IntegrityFailed { reason: String },
 
+    #[error("提取失败：{reason}")]
+    ExtractionFailed { reason: String },
+
     #[error("文件操作失败：{0}")]
     Io(#[from] std::io::Error),
 
@@ -93,6 +99,7 @@ impl CoreError {
             Self::StorageFull => ErrorCode::StorageFull,
             Self::AssetMissing { .. } => ErrorCode::AssetMissing,
             Self::IntegrityFailed { .. } => ErrorCode::IntegrityFailed,
+            Self::ExtractionFailed { .. } => ErrorCode::UnsupportedFormat,
             Self::Io(err) => io_code(err),
             Self::CorruptedData { .. } | Self::Serialization(_) => ErrorCode::InvalidState,
             Self::Database(err) => database_code(err),

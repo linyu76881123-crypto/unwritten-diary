@@ -12,6 +12,7 @@
 
 mod assets;
 mod error;
+mod extractors;
 mod jobs;
 mod model;
 mod recordings;
@@ -19,14 +20,18 @@ mod schema;
 mod support;
 
 pub use assets::ImportRequest;
+pub use extractors::{
+    builtin_extractors, ExtractionInput, ExtractionOutcome, Extractor,
+};
 pub use error::{CoreError, ErrorCode, Result};
 pub use model::{
     Asset, AssetLease, AssetStorageState, AuthorType, Capture, CapturePage, CaptureState,
     CommitResult, DomainEvent, DraftSaveResult, EventType, ImportManifest, ImportOrigin,
-    ImportState, ImportStatus, ImportTicket, Job, JobPriority, JobProgress, JobState,
-    NativeRecordingStatus, NewJob, ProcessingSummary, RecordingFinalizeResult,
-    RecordingRecovery, RecordingSession, RecordingState, RecordingTicket, SegmentManifest,
-    SegmentReceipt, SourceItem, SourceRevision,
+    Coverage, ExtractedContent, ExtractedSegment, ImportState, ImportStatus, ImportTicket, Job,
+    JobPriority, JobProgress, JobState, LocatorType, NativeRecordingStatus, NewJob,
+    ProcessingStatus, ProcessingSummary, RecordingFinalizeResult, RecordingRecovery,
+    RecordingSession, RecordingState, RecordingTicket, SegmentManifest, SegmentReceipt,
+    SourceItem, SourceLocation, SourceLocator, SourceRevision,
 };
 pub use schema::SCHEMA_VERSION;
 
@@ -612,6 +617,26 @@ impl Core {
 
     pub fn is_attention_acknowledged(&self, attention_key: &str) -> Result<bool> {
         jobs::is_attention_acknowledged(self, attention_key)
+    }
+
+    // ------------------------------------------------------------ 提取与定位
+
+    /// 对某个来源修订跑一次提取，结果作为可重建的派生内容存下来。
+    ///
+    /// 提取失败也会落一条记录（status=failed、coverage=unavailable、带错误码），
+    /// 这样界面上能看到「解析失败」而不是「没有相关内容」。
+    pub fn extract_source(&mut self, source_revision_id: &str) -> Result<ExtractedContent> {
+        extractors::extract_source_revision(self, source_revision_id)
+    }
+
+    /// 读取某个来源当前版本的派生内容；没提取过时返回 None。
+    pub fn extracted_content(&self, source_id: &str) -> Result<Option<ExtractedContent>> {
+        extractors::extracted_content(self, source_id)
+    }
+
+    /// 把 sourceRef + locator 解析成前端可打开的原件与可用性。
+    pub fn locate_source(&self, source_ref: &str, locator: SourceLocator) -> Result<SourceLocation> {
+        extractors::locate(self, source_ref, locator)
     }
 
     // ------------------------------------------------------------ 原件与导入
