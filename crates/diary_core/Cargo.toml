@@ -1,0 +1,19 @@
+[package]
+name = "diary_core"
+description = "「不写日记」设备内本地核心：资料库、记录与持久化。"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+rusqlite.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+sha2.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

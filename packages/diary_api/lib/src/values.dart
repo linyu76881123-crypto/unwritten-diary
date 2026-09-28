@@ -405,6 +405,8 @@ enum DiaryErrorCode {
   permissionDenied('permission_denied'),
   revisionConflict('revision_conflict'),
   idempotencyConflict('idempotency_conflict'),
+  notFound('not_found'),
+  invalidState('invalid_state'),
   assetMissing('asset_missing'),
   unsupportedFormat('unsupported_format'),
   providerNotConfigured('provider_not_configured'),
