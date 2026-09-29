@@ -7,7 +7,7 @@
 use rusqlite::{params, Connection};
 
 /// 本构建支持的 schema 版本。
-pub const SCHEMA_VERSION: i64 = 3;
+pub const SCHEMA_VERSION: i64 = 4;
 
 /// 迁移到最新版本。已经是最新则什么都不做。
 pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
@@ -32,6 +32,9 @@ pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
     }
     if current < 3 {
         tx.execute_batch(V3)?;
+    }
+    if current < 4 {
+        tx.execute_batch(V4)?;
     }
     tx.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
     tx.execute(
@@ -225,4 +228,48 @@ CREATE TABLE attention_acks (
     attention_key   TEXT PRIMARY KEY,
     acknowledged_at TEXT NOT NULL
 );
+"#;
+
+/// v4：派生内容（提取结果）与它的片段定位。
+///
+/// 派生内容是可重建的：重新提取先删旧记录再写新的，原件不受影响。
+/// `(source_revision_id, extractor_id)` 唯一，避免同一个版本被同一个提取器重复写。
+const V4: &str = r#"
+CREATE TABLE extracted_contents (
+    id                  TEXT PRIMARY KEY,
+    source_id           TEXT NOT NULL,
+    source_revision_id  TEXT NOT NULL,
+    extractor_id        TEXT NOT NULL,
+    extractor_version   TEXT NOT NULL,
+    text                TEXT NOT NULL DEFAULT '',
+    status              TEXT NOT NULL,
+    coverage            TEXT NOT NULL,
+    coverage_reason     TEXT,
+    error_code          TEXT,
+    created_at          TEXT NOT NULL,
+    UNIQUE (source_revision_id, extractor_id)
+);
+CREATE INDEX idx_extracted_contents_source ON extracted_contents(source_id);
+CREATE INDEX idx_extracted_contents_revision ON extracted_contents(source_revision_id);
+
+CREATE TABLE extracted_segments (
+    id                 TEXT PRIMARY KEY,
+    content_id         TEXT NOT NULL REFERENCES extracted_contents(id) ON DELETE CASCADE,
+    ordinal            INTEGER NOT NULL,
+    text               TEXT NOT NULL,
+    locator_type       TEXT NOT NULL,
+    source_revision_id TEXT NOT NULL,
+    text_start         INTEGER,
+    text_end           INTEGER,
+    start_ms           INTEGER,
+    end_ms             INTEGER,
+    page_number        INTEGER,
+    block_id           TEXT,
+    rect_left          REAL,
+    rect_top           REAL,
+    rect_right         REAL,
+    rect_bottom        REAL,
+    asset_id           TEXT
+);
+CREATE INDEX idx_extracted_segments_content ON extracted_segments(content_id, ordinal);
 "#;
