@@ -125,6 +125,7 @@ class _ExperienceShellState extends State<ExperienceShell> {
                     child: Column(
                       children: [
                         _header(desktop),
+                        if (widget.demoMode) _demoBanner(desktop),
                         const Divider(
                           color: SketchColors.ink,
                           thickness: 1,
@@ -233,6 +234,21 @@ class _ExperienceShellState extends State<ExperienceShell> {
           icon: const Icon(Icons.notifications_none, color: SketchColors.ink),
         ),
       ],
+    ),
+  );
+
+  Widget _demoBanner(bool desktop) => Container(
+    width: double.infinity,
+    color: SketchColors.soft,
+    padding: EdgeInsets.symmetric(horizontal: desktop ? 46 : 22, vertical: 7),
+    child: const Text(
+      '演示模式 · 内容仅在本次运行',
+      softWrap: true,
+      style: TextStyle(
+        color: SketchColors.ink,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+      ),
     ),
   );
 
@@ -630,7 +646,7 @@ class _ExperienceShellState extends State<ExperienceShell> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _dateLabel(DateTime.now()),
+              '示例日记 · 无实际日期',
               style: const TextStyle(color: SketchColors.muted),
             ),
             const SizedBox(height: 12),
@@ -664,7 +680,7 @@ class _ExperienceShellState extends State<ExperienceShell> {
                   children: [
                     Icon(Icons.description_outlined, size: 18),
                     SizedBox(width: 9),
-                    Expanded(child: Text('查看来源 · 文字 1 项')),
+                    Expanded(child: Text('查看示例来源 · 文字 1 项')),
                     Icon(Icons.arrow_forward, size: 17),
                   ],
                 ),
@@ -783,14 +799,14 @@ class _ExperienceShellState extends State<ExperienceShell> {
         if (showSample)
           _resultTile(
             '普通的一天，也有光',
-            '日记 · 今天',
+            '示例 · 日记 · 无实际日期',
             '今天路过花店，看到一束很明亮的橘色花…',
             () => _go(1),
           ),
         if (showSample && _searchKind != '日记')
           _resultTile(
             '花店门口的片刻',
-            '原始文字 · 今天',
+            '示例 · 原始文字 · 无实际日期',
             '今天路过花店，看到一束橘色花。',
             () => _openDetail('source'),
           ),
@@ -869,25 +885,25 @@ class _ExperienceShellState extends State<ExperienceShell> {
       for (final capture in _capture.recent)
         _resultTile(
           capture.state == CaptureState.draft ? '正在写的草稿' : '刚刚收好的记录',
-          '${capture.state == CaptureState.draft ? '草稿' : '文字'} · ${_dateLabel(capture.occurredAt.toLocal())}',
+          '本次会话文字 · ${capture.state == CaptureState.draft ? '草稿' : '已提交'} · ${_dateLabel(capture.occurredAt.toLocal())}',
           capture.draftText,
           () => _openDetail(capture.id),
         ),
       _resultTile(
         '花店门口的片刻',
-        '文字 · 今天',
+        '示例 · 文字 · 无实际日期',
         '今天路过花店，看到一束橘色花。',
         () => _openDetail('source'),
       ),
       _resultTile(
         '傍晚的街角',
-        '照片 · 今天 · 待处理',
+        '示例 · 照片 · 待处理',
         '原图已保存的展示位置；画面描述尚未生成。',
         () => _openDetail('photo'),
       ),
       _resultTile(
         '回家路上的声音',
-        '录音 · 今天 · 待转写',
+        '示例 · 录音 · 待转写',
         '声音原件可播放；文字检索范围取决于转写状态。',
         () => _openDetail('audio'),
       ),
@@ -898,7 +914,7 @@ class _ExperienceShellState extends State<ExperienceShell> {
     key: const ValueKey('profile'),
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      _title('我的小天地', '资料留在自己的设备里，按喜欢的方式整理。'),
+      _title('我的小天地', '预览资料与整理方式，慢慢布置自己的空间。'),
       const SizedBox(height: 23),
       _notice('这是单设备演示资料库，没有账号与自动同步。'),
       const SizedBox(height: 18),
@@ -1085,7 +1101,7 @@ class _ExperienceShellState extends State<ExperienceShell> {
         ),
         const SizedBox(height: 9),
         const Text(
-          '今天 · 示例生成 · 使用文字 1 项',
+          '示例生成 · 无实际日期 · 使用文字 1 项',
           style: TextStyle(color: SketchColors.muted, fontSize: 12),
         ),
         const Divider(color: SketchColors.line, height: 25),
@@ -1172,7 +1188,7 @@ class _ExperienceShellState extends State<ExperienceShell> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                '回应示例 · 与日记正文分开保存',
+                '回应示例 · 与日记正文分开展示',
                 style: TextStyle(color: SketchColors.muted, fontSize: 12),
               ),
               const SizedBox(height: 10),
@@ -1196,19 +1212,19 @@ class _ExperienceShellState extends State<ExperienceShell> {
       const SizedBox(height: 16),
       _resultTile(
         '待配置 · 录音转写',
-        '需要处理',
+        '示例 · 需要处理',
         '声音原件仍可保留；配置转写能力后再继续。',
         () => _openPanel('model'),
       ),
       _resultTile(
         '图片内容提取',
-        '等待',
+        '示例 · 等待',
         '尚未配置图片理解服务，文件名仍可检索。',
         () => _openPanel('model'),
       ),
       _resultTile(
         '示例日记整理',
-        '完成',
+        '示例 · 完成',
         '已生成候选版；不会自动覆盖人工编辑。',
         () => _openPanel('versions'),
       ),
@@ -1220,7 +1236,7 @@ class _ExperienceShellState extends State<ExperienceShell> {
     children: [
       _title('风格偏好', '让文字更像你，又不替你编造。'),
       const SizedBox(height: 20),
-      _notice('偏好只影响未来的整理；历史日记不会自动重写。'),
+      _notice('偏好设置仅供预览，暂不保存到核心，也不会影响整理结果；整理功能尚未接入。'),
       const SizedBox(height: 18),
       _choiceGroup(
         '篇幅',
@@ -1327,7 +1343,7 @@ class _ExperienceShellState extends State<ExperienceShell> {
     children: [
       _title('整理时机', '安静地整理，不打断记录。'),
       const SizedBox(height: 20),
-      _notice('时间是尝试启动的时刻，受系统后台调度影响，不保证准点完成。'),
+      _notice('自动整理尚未接入；这里仅预览设置方式，开关与时间不会保存或启动任务。'),
       const SizedBox(height: 18),
       SketchFrame(
         child: Column(
@@ -1405,19 +1421,19 @@ class _ExperienceShellState extends State<ExperienceShell> {
       const SizedBox(height: 18),
       _resultTile(
         '创建完整备份',
-        '包含原始材料、日记版本与配置',
+        '示例 · 包含原始材料、日记版本与配置',
         '正式版将展示目标位置、空间需求与加密选项。',
         () => _toast('完整备份需要真实本地核心；演示没有生成文件。'),
       ),
       _resultTile(
         '导出阅读文档',
-        '方便阅读与分享',
+        '示例 · 方便阅读与分享',
         '阅读文档不能用于完整恢复。',
         () => _toast('阅读导出尚未接入；演示没有生成文件。'),
       ),
       _resultTile(
         '恢复备份',
-        '先检查，再预览',
+        '示例 · 先检查，再预览',
         '默认恢复到新资料库，避免覆盖当前资料。',
         () => _toast('恢复需要真实备份；当前资料未发生变化。'),
       ),
@@ -1618,9 +1634,13 @@ class _ExperienceShellState extends State<ExperienceShell> {
           ),
         ),
         const SizedBox(height: 12),
-        _title(title, '原始材料 · 与整理后的日记分别保留'),
+        _title(title, capture == null ? '示例原始材料 · 无实际日期' : '本次会话文字 · 仅在本次运行保留'),
         const SizedBox(height: 20),
-        _notice('来源详情与定位是交互预览；真实文件和播放器需要平台能力接入。'),
+        _notice(
+          capture == null
+              ? '来源详情与定位是交互预览；真实文件和播放器需要平台能力接入。'
+              : '这是本次会话中写下的文字；演示不会永久保存。',
+        ),
         const SizedBox(height: 18),
         SketchFrame(
           padding: const EdgeInsets.all(27),
@@ -1637,9 +1657,11 @@ class _ExperienceShellState extends State<ExperienceShell> {
               ),
               const SizedBox(height: 30),
               const Divider(color: SketchColors.line),
-              const Text(
-                '处理状态：示例 · 部分材料仍待处理',
-                style: TextStyle(color: SketchColors.muted),
+              Text(
+                capture == null
+                    ? '处理状态：示例 · 部分材料仍待处理'
+                    : '状态：本次会话文字 · ${capture.state == CaptureState.draft ? '草稿' : '已提交'}',
+                style: const TextStyle(color: SketchColors.muted),
               ),
             ],
           ),

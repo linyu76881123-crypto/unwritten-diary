@@ -24,6 +24,6 @@ flutter:
   assets:
     - assets/brand/app_icon.png
   fonts:
-    - family: Iansui
+    - family: DiaryDisplay
       fonts:
-        - asset: assets/fonts/Iansui-AppSubset.ttf
+        - asset: assets/fonts/DiaryDisplay-AppSubset.ttf

@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 abstract final class SketchFonts {
-  static const display = 'Iansui';
+  static const display = 'DiaryDisplay';
 }
 
 abstract final class SketchColors {
@@ -129,12 +129,16 @@ class SketchAction extends StatelessWidget {
               Icon(icon, size: compact ? 16 : 18, color: SketchColors.ink),
               const SizedBox(width: 8),
             ],
-            Text(
-              label,
-              style: TextStyle(
-                color: SketchColors.ink,
-                fontSize: compact ? 13 : 15,
-                fontWeight: FontWeight.w600,
+            Flexible(
+              child: Text(
+                label,
+                softWrap: true,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: SketchColors.ink,
+                  fontSize: compact ? 13 : 15,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
