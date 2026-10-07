@@ -19,6 +19,8 @@ env:
   # 用更新的 stable 会掩盖 MSRV 问题。
   RUST_VERSION: "1.94.1"
   DART_VERSION: "3.12.2"
+  # 与 DART_VERSION 对应的 Flutter 版本（3.44.6 自带 Dart 3.12.2）。
+  FLUTTER_VERSION: "3.44.6"
 
 jobs:
   docs:
@@ -51,6 +53,54 @@ jobs:
         run: dart analyze --fatal-infos
       - name: 单元测试
         run: dart test
+      # F0 的 diary_mock 是纯 Dart，跟着同一个必过检查跑，不新增检查名。
+      - name: 安装依赖（diary_mock）
+        working-directory: packages/diary_mock
+        run: dart pub get
+      - name: 静态分析（diary_mock）
+        working-directory: packages/diary_mock
+        run: dart analyze --fatal-infos
+      - name: 单元测试（diary_mock）
+        working-directory: packages/diary_mock
+        run: dart test
+
+  flutter:
+    name: flutter
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/diary_app
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # apps/diary_app 是 PR #34 才引入的目录。本 PR 可能先于它合入，
+      # 那时这个任务什么都不该做——但也不能静默变绿，所以打一条 notice。
+      - name: 应用目录是否存在
+        id: app
+        run: |
+          if [ -f apps/diary_app/pubspec.yaml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::apps/diary_app 还不存在，跳过本轮 Flutter 检查"
+          fi
+      - name: 安装 Flutter
+        if: steps.app.outputs.present == 'true'
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: 安装依赖
+        if: steps.app.outputs.present == 'true'
+        run: flutter pub get
+      - name: 静态分析
+        if: steps.app.outputs.present == 'true'
+        run: flutter analyze --fatal-infos
+      - name: 组件测试
+        if: steps.app.outputs.present == 'true'
+        run: flutter test
 
   rust:
     name: rust
