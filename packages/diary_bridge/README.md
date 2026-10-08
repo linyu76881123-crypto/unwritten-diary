@@ -15,6 +15,8 @@ Dart 侧访问 Rust 核心的唯一入口，含 [flutter_rust_bridge](https://cj
 
 对应 Rust 侧在 `crates/diary_bridge/`，生成入口是仓库根目录的 `flutter_rust_bridge.yaml`。
 
+**这个包目前不实现 `diary_api` 的 `DiaryApi`**：它暴露的是 `BridgeSession` 与 frb 生成的另一套同名类型，两者之间还需要一层适配（见 [issue #38](https://github.com/xingxue-ux/unwritten-diary/issues/38)）。前端现在接的是 `packages/diary_mock`。
+
 ## 重新生成绑定
 
 在仓库根目录执行：
