@@ -93,6 +93,25 @@ pub(crate) fn list(core: &Core, states: Option<&[JobState]>, limit: usize) -> Re
     ids.iter().map(|id| load_job(&core.conn, id)).collect()
 }
 
+/// 按状态精确计数。
+///
+/// 存在的理由：`list()` 会把 limit 夹到 200（分页用），拿它 `.len()` 当计数
+/// 就会在任务多的时候少报。需要数字的地方一律走这里。
+pub(crate) fn count(core: &Core, states: Option<&[JobState]>) -> Result<i64> {
+    let filter = match states {
+        Some(values) if !values.is_empty() => Some(serde_json::to_string(
+            &values.iter().map(|state| state.wire()).collect::<Vec<_>>(),
+        )?),
+        _ => None,
+    };
+    let total = core.conn.query_row(
+        "SELECT COUNT(*) FROM jobs WHERE (?1 IS NULL OR state IN (SELECT value FROM json_each(?1)))",
+        params![filter],
+        |row| row.get(0),
+    )?;
+    Ok(total)
+}
+
 /// 领取下一个到期的任务：优先级高的先跑，同优先级先来先跑。
 pub(crate) fn claim_next_due(core: &mut Core, now: DateTime<Utc>) -> Result<Option<Job>> {
     let candidate: Option<String> = core
