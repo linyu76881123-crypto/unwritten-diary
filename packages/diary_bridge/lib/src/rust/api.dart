@@ -13,6 +13,9 @@ import 'third_party/diary_core/model.dart';
 
 // Rust type: RustOpaqueMoi<flutter_rust_bridge::for_generated::RustAutoOpaqueInner<BridgeSession>>
 abstract class BridgeSession implements RustOpaqueInterface {
+  /// 取消后续处理；不删除任何原件。
+  Future<SearchSnapshot> cancelSearch({required String sessionId});
+
   /// 已经接到桥上的契约方法名。
   Future<List<String>> capabilities();
 
@@ -100,6 +103,21 @@ abstract class BridgeSession implements RustOpaqueInterface {
     required String text,
     required PlatformInt64 expectedRevision,
     required String operationId,
+  });
+
+  /// 翻页；`cursor` 为空表示接着当前进度。游标不属于这个会话报 `cursor_expired`。
+  Future<SearchSnapshot> searchNextPage({
+    required String sessionId,
+    String? cursor,
+  });
+
+  /// 读当前快照；会话不存在或索引变了报 `search_expired`。
+  Future<SearchSnapshot> searchSnapshot({required String sessionId});
+
+  /// 发起一次检索，契约第 4.4 节 `search.start`。
+  Future<SearchSnapshot> startSearch({
+    required SearchRequest request,
+    required PlatformInt64 queryRevision,
   });
 }
 

@@ -8,7 +8,7 @@ import '../../lib.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `AssetLease`, `Asset`, `NativeRecordingStatus`, `NewJob`, `RecordingFinalizeResult`, `RecordingRecovery`, `RecordingSession`, `RecordingTicket`, `SegmentManifest`, `SegmentReceipt`, `SourceItem`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `assert_fields_are_eq`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `clone`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `eq`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`, `fmt`
 // These functions have error during generation (see debug logs or enable `stop_on_error: true` for more details): `new`, `targeting`, `with_snapshot`
 
 /// 资产在文件库中的状态，契约第 2.3 节。
@@ -530,7 +530,11 @@ class IndexStatus {
   /// 索引里不同词项的个数。
   final PlatformInt64 indexTerms;
 
-  /// 索引表实际占用的字节数（来自 dbstat）。读不到时是 0，并在 reasons 里说明。
+  /// **整库**索引表实际占用的字节数（来自 dbstat）。
+  ///
+  /// 它不随 `source_scope` 变化：dbstat 按表汇总页数，页在来源之间共享，拆不出来。
+  /// 范围查询里它仍是整库值，并在 `reasons` 里写明。读不到 dbstat 时是 0，同样在
+  /// `reasons` 里说明。
   final PlatformInt64 indexBytes;
 
   /// 用户可读的原因说明。
@@ -744,6 +748,19 @@ enum LocatorType {
       RustLib.instance.api.diaryCoreModelLocatorTypeWire(that: this);
 }
 
+/// 一条命中是靠什么匹配上的，契约第 2.6 节。这一片只产出 `Keyword`。
+enum MatchedBy {
+  keyword,
+  semantic,
+  metadata;
+
+  static Future<MatchedBy?> fromWire({required String value}) =>
+      RustLib.instance.api.diaryCoreModelMatchedByFromWire(value: value);
+
+  Future<void> wire() =>
+      RustLib.instance.api.diaryCoreModelMatchedByWire(that: this);
+}
+
 /// 派生内容的处理状态。取值沿用契约第 3 节「索引」行。
 enum ProcessingStatus {
   pending,
@@ -822,6 +839,247 @@ enum RecordingState {
 
   Future<void> wire() =>
       RustLib.instance.api.diaryCoreModelRecordingStateWire(that: this);
+}
+
+/// 检索过滤条件，契约第 2.6 节。
+class SearchFilters {
+  final String? fromDayKey;
+  final String? toDayKey;
+  final List<SourceKind> kinds;
+
+  /// 限定来源范围；空表示不限。
+  final List<String>? sourceScope;
+  final bool includeOldDiaryVersions;
+  final bool includeTrashed;
+
+  const SearchFilters({
+    this.fromDayKey,
+    this.toDayKey,
+    required this.kinds,
+    this.sourceScope,
+    required this.includeOldDiaryVersions,
+    required this.includeTrashed,
+  });
+
+  static Future<SearchFilters> default_() =>
+      RustLib.instance.api.diaryCoreModelSearchFiltersDefault();
+
+  @override
+  int get hashCode =>
+      fromDayKey.hashCode ^
+      toDayKey.hashCode ^
+      kinds.hashCode ^
+      sourceScope.hashCode ^
+      includeOldDiaryVersions.hashCode ^
+      includeTrashed.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SearchFilters &&
+          runtimeType == other.runtimeType &&
+          fromDayKey == other.fromDayKey &&
+          toDayKey == other.toDayKey &&
+          kinds == other.kinds &&
+          sourceScope == other.sourceScope &&
+          includeOldDiaryVersions == other.includeOldDiaryVersions &&
+          includeTrashed == other.includeTrashed;
+}
+
+/// 一条检索命中，契约第 2.6 节。
+class SearchHit {
+  /// 稳定标识：直接用片段 ID。同一份内容在不同页里出现时是同一个值。
+  final String hitId;
+
+  /// 同一来源的命中归到一组，避免一份长材料占满结果。
+  final String groupId;
+  final SourceKind sourceKind;
+  final List<MatchedBy> matchedBy;
+  final Coverage coverage;
+  final String? sourceId;
+  final String? revisionId;
+  final String? dayKey;
+
+  /// 原件名（有资产时）；纯文字来源没有名字。
+  final String? title;
+
+  /// 命中位置附近的摘录。
+  final String? snippet;
+
+  /// 高亮区间，下标相对 `snippet`。
+  final List<TextRange> highlights;
+  final SourceLocator? locator;
+
+  const SearchHit({
+    required this.hitId,
+    required this.groupId,
+    required this.sourceKind,
+    required this.matchedBy,
+    required this.coverage,
+    this.sourceId,
+    this.revisionId,
+    this.dayKey,
+    this.title,
+    this.snippet,
+    required this.highlights,
+    this.locator,
+  });
+
+  @override
+  int get hashCode =>
+      hitId.hashCode ^
+      groupId.hashCode ^
+      sourceKind.hashCode ^
+      matchedBy.hashCode ^
+      coverage.hashCode ^
+      sourceId.hashCode ^
+      revisionId.hashCode ^
+      dayKey.hashCode ^
+      title.hashCode ^
+      snippet.hashCode ^
+      highlights.hashCode ^
+      locator.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SearchHit &&
+          runtimeType == other.runtimeType &&
+          hitId == other.hitId &&
+          groupId == other.groupId &&
+          sourceKind == other.sourceKind &&
+          matchedBy == other.matchedBy &&
+          coverage == other.coverage &&
+          sourceId == other.sourceId &&
+          revisionId == other.revisionId &&
+          dayKey == other.dayKey &&
+          title == other.title &&
+          snippet == other.snippet &&
+          highlights == other.highlights &&
+          locator == other.locator;
+}
+
+/// 检索模式，契约第 2.6 节。这一片只实现 `Keyword`。
+enum SearchMode {
+  keyword,
+  semantic,
+  hybrid;
+
+  static Future<SearchMode?> fromWire({required String value}) =>
+      RustLib.instance.api.diaryCoreModelSearchModeFromWire(value: value);
+
+  Future<void> wire() =>
+      RustLib.instance.api.diaryCoreModelSearchModeWire(that: this);
+}
+
+/// 检索阶段，契约第 2.6 节。
+enum SearchPhase {
+  initial,
+  keywordReady,
+  hybridReady,
+  done,
+  cancelled;
+
+  static Future<SearchPhase?> fromWire({required String value}) =>
+      RustLib.instance.api.diaryCoreModelSearchPhaseFromWire(value: value);
+
+  Future<void> wire() =>
+      RustLib.instance.api.diaryCoreModelSearchPhaseWire(that: this);
+}
+
+/// 一次检索请求，契约第 2.6 节。
+class SearchRequest {
+  /// 用户原样输入，是普通检索文字，不直接当 FTS 表达式执行。
+  final String query;
+  final SearchMode mode;
+  final SearchFilters filters;
+  final PlatformInt64 pageSize;
+
+  const SearchRequest({
+    required this.query,
+    required this.mode,
+    required this.filters,
+    required this.pageSize,
+  });
+
+  @override
+  int get hashCode =>
+      query.hashCode ^ mode.hashCode ^ filters.hashCode ^ pageSize.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SearchRequest &&
+          runtimeType == other.runtimeType &&
+          query == other.query &&
+          mode == other.mode &&
+          filters == other.filters &&
+          pageSize == other.pageSize;
+}
+
+/// 检索会话的完整快照，契约第 2.6 节。
+///
+/// 每次返回的是**当前页的完整快照**，前端按 `hit_id` 更新，不要把两份快照
+/// 当增量拼接。
+class SearchSnapshot {
+  final String sessionId;
+  final PlatformInt64 queryRevision;
+  final SearchPhase phase;
+  final List<SearchHit> results;
+  final String? cursor;
+  final Coverage indexCoverage;
+  final List<String> warnings;
+
+  const SearchSnapshot({
+    required this.sessionId,
+    required this.queryRevision,
+    required this.phase,
+    required this.results,
+    this.cursor,
+    required this.indexCoverage,
+    required this.warnings,
+  });
+
+  @override
+  int get hashCode =>
+      sessionId.hashCode ^
+      queryRevision.hashCode ^
+      phase.hashCode ^
+      results.hashCode ^
+      cursor.hashCode ^
+      indexCoverage.hashCode ^
+      warnings.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SearchSnapshot &&
+          runtimeType == other.runtimeType &&
+          sessionId == other.sessionId &&
+          queryRevision == other.queryRevision &&
+          phase == other.phase &&
+          results == other.results &&
+          cursor == other.cursor &&
+          indexCoverage == other.indexCoverage &&
+          warnings == other.warnings;
+}
+
+/// 材料类型，契约第 2.3 节的 SourceKind。
+enum SourceKind {
+  text,
+  image,
+  audio,
+  video,
+  file,
+  link;
+
+  /// 认不出的类型落到 `file`——这是「有原件但不知道是什么」最接近的诚实答案，
+  /// 而不是丢掉这条命中。
+  static Future<SourceKind> fromWire({required String value}) =>
+      RustLib.instance.api.diaryCoreModelSourceKindFromWire(value: value);
+
+  Future<void> wire() =>
+      RustLib.instance.api.diaryCoreModelSourceKindWire(that: this);
 }
 
 /// 定位结果：前端能否打开原件，以及不能打开时的真实原因。
@@ -984,4 +1242,23 @@ class SourceRevision {
           assetId == other.assetId &&
           authorType == other.authorType &&
           occurredAt == other.occurredAt;
+}
+
+/// 命中里的高亮区间，**下标相对 `snippet`**，不是相对整段正文。
+class TextRange {
+  final PlatformInt64 start;
+  final PlatformInt64 end;
+
+  const TextRange({required this.start, required this.end});
+
+  @override
+  int get hashCode => start.hashCode ^ end.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TextRange &&
+          runtimeType == other.runtimeType &&
+          start == other.start &&
+          end == other.end;
 }

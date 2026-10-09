@@ -49,8 +49,9 @@ void main() {
     expect(info.capabilities, contains('captures.commit'));
     expect(info.capabilities, contains('imports.finish'));
     expect(info.capabilities, contains('indexes.status'));
+    // 检索会话在 B3b 接上了。
+    expect(info.capabilities, contains('search.start'));
     // 诚实的能力声明：还没接的不该出现在清单里。
-    expect(info.capabilities, isNot(contains('search.start')));
     expect(info.capabilities, isNot(contains('diary.generate')));
     expect(info.recovery.pendingJobs, 0);
   });

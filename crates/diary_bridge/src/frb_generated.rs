@@ -40,7 +40,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1633854652;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1779302574;
 
 // Section: executor
 
@@ -48,6 +48,57 @@ flutter_rust_bridge::frb_generated_default_handler!();
 
 // Section: wire_funcs
 
+fn wire__crate__api__BridgeSession_cancel_search_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "BridgeSession_cancel_search",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<BridgeSession>,
+            >>::sse_decode(&mut deserializer);
+            let api_session_id = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let mut api_that_guard = None;
+                    let decode_indices_ =
+                        flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                            flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                &api_that, 0, false,
+                            ),
+                        ]);
+                    for i in decode_indices_ {
+                        match i {
+                            0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                            _ => unreachable!(),
+                        }
+                    }
+                    let api_that_guard = api_that_guard.unwrap();
+                    let output_ok =
+                        crate::api::BridgeSession::cancel_search(&*api_that_guard, api_session_id)?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__crate__api__BridgeSession_capabilities_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1058,6 +1109,169 @@ fn wire__crate__api__BridgeSession_save_draft_impl(
         },
     )
 }
+fn wire__crate__api__BridgeSession_search_next_page_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "BridgeSession_search_next_page",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<BridgeSession>,
+            >>::sse_decode(&mut deserializer);
+            let api_session_id = <String>::sse_decode(&mut deserializer);
+            let api_cursor = <Option<String>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let mut api_that_guard = None;
+                    let decode_indices_ =
+                        flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                            flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                &api_that, 0, false,
+                            ),
+                        ]);
+                    for i in decode_indices_ {
+                        match i {
+                            0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                            _ => unreachable!(),
+                        }
+                    }
+                    let api_that_guard = api_that_guard.unwrap();
+                    let output_ok = crate::api::BridgeSession::search_next_page(
+                        &*api_that_guard,
+                        api_session_id,
+                        api_cursor,
+                    )?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__BridgeSession_search_snapshot_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "BridgeSession_search_snapshot",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<BridgeSession>,
+            >>::sse_decode(&mut deserializer);
+            let api_session_id = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let mut api_that_guard = None;
+                    let decode_indices_ =
+                        flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                            flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                &api_that, 0, false,
+                            ),
+                        ]);
+                    for i in decode_indices_ {
+                        match i {
+                            0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                            _ => unreachable!(),
+                        }
+                    }
+                    let api_that_guard = api_that_guard.unwrap();
+                    let output_ok = crate::api::BridgeSession::search_snapshot(
+                        &*api_that_guard,
+                        api_session_id,
+                    )?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__crate__api__BridgeSession_start_search_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "BridgeSession_start_search",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<BridgeSession>,
+            >>::sse_decode(&mut deserializer);
+            let api_request = <diary_core::model::SearchRequest>::sse_decode(&mut deserializer);
+            let api_query_revision = <i64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, crate::api::BridgeError>((move || {
+                    let mut api_that_guard = None;
+                    let decode_indices_ =
+                        flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                            flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                                &api_that, 0, false,
+                            ),
+                        ]);
+                    for i in decode_indices_ {
+                        match i {
+                            0 => api_that_guard = Some(api_that.lockable_decode_sync_ref()),
+                            _ => unreachable!(),
+                        }
+                    }
+                    let api_that_guard = api_that_guard.unwrap();
+                    let output_ok = crate::api::BridgeSession::start_search(
+                        &*api_that_guard,
+                        api_request,
+                        api_query_revision,
+                    )?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__diary_core__model__asset_storage_state_from_wire_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1780,6 +1994,75 @@ fn wire__diary_core__model__locator_type_wire_impl(
         },
     )
 }
+fn wire__diary_core__model__matched_by_from_wire_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "matched_by_from_wire",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_value = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Ok::<_, ()>(diary_core::model::MatchedBy::from_wire(&api_value))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__diary_core__model__matched_by_wire_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "matched_by_wire",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <diary_core::model::MatchedBy>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>({
+                        diary_core::model::MatchedBy::wire(api_that);
+                    })?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
 fn wire__diary_core__model__processing_status_from_wire_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1977,6 +2260,245 @@ fn wire__diary_core__model__recording_state_wire_impl(
                 transform_result_sse::<_, ()>((move || {
                     let output_ok = Ok::<_, ()>({
                         diary_core::model::RecordingState::wire(api_that);
+                    })?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__diary_core__model__search_filters_default_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "search_filters_default",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>(diary_core::model::SearchFilters::default())?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__diary_core__model__search_mode_from_wire_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "search_mode_from_wire",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_value = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Ok::<_, ()>(diary_core::model::SearchMode::from_wire(&api_value))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__diary_core__model__search_mode_wire_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "search_mode_wire",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <diary_core::model::SearchMode>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>({
+                        diary_core::model::SearchMode::wire(api_that);
+                    })?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__diary_core__model__search_phase_from_wire_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "search_phase_from_wire",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_value = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Ok::<_, ()>(diary_core::model::SearchPhase::from_wire(&api_value))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__diary_core__model__search_phase_wire_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "search_phase_wire",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <diary_core::model::SearchPhase>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>({
+                        diary_core::model::SearchPhase::wire(api_that);
+                    })?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__diary_core__model__source_kind_from_wire_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "source_kind_from_wire",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_value = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok =
+                        Ok::<_, ()>(diary_core::model::SourceKind::from_wire(&api_value))?;
+                    std::result::Result::Ok(output_ok)
+                })())
+            }
+        },
+    )
+}
+fn wire__diary_core__model__source_kind_wire_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "source_kind_wire",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_that = <diary_core::model::SourceKind>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, ()>((move || {
+                    let output_ok = Ok::<_, ()>({
+                        diary_core::model::SourceKind::wire(api_that);
                     })?;
                     std::result::Result::Ok(output_ok)
                 })())
@@ -2201,6 +2723,47 @@ const _: fn() = || {
         let _: u32 = ProcessingSummary.needs_attention;
     }
     {
+        let SearchFilters = None::<diary_core::model::SearchFilters>.unwrap();
+        let _: Option<String> = SearchFilters.from_day_key;
+        let _: Option<String> = SearchFilters.to_day_key;
+        let _: Vec<diary_core::model::SourceKind> = SearchFilters.kinds;
+        let _: Option<Vec<String>> = SearchFilters.source_scope;
+        let _: bool = SearchFilters.include_old_diary_versions;
+        let _: bool = SearchFilters.include_trashed;
+    }
+    {
+        let SearchHit = None::<diary_core::model::SearchHit>.unwrap();
+        let _: String = SearchHit.hit_id;
+        let _: String = SearchHit.group_id;
+        let _: diary_core::model::SourceKind = SearchHit.source_kind;
+        let _: Vec<diary_core::model::MatchedBy> = SearchHit.matched_by;
+        let _: diary_core::model::Coverage = SearchHit.coverage;
+        let _: Option<String> = SearchHit.source_id;
+        let _: Option<String> = SearchHit.revision_id;
+        let _: Option<String> = SearchHit.day_key;
+        let _: Option<String> = SearchHit.title;
+        let _: Option<String> = SearchHit.snippet;
+        let _: Vec<diary_core::model::TextRange> = SearchHit.highlights;
+        let _: Option<diary_core::model::SourceLocator> = SearchHit.locator;
+    }
+    {
+        let SearchRequest = None::<diary_core::model::SearchRequest>.unwrap();
+        let _: String = SearchRequest.query;
+        let _: diary_core::model::SearchMode = SearchRequest.mode;
+        let _: diary_core::model::SearchFilters = SearchRequest.filters;
+        let _: i64 = SearchRequest.page_size;
+    }
+    {
+        let SearchSnapshot = None::<diary_core::model::SearchSnapshot>.unwrap();
+        let _: String = SearchSnapshot.session_id;
+        let _: i64 = SearchSnapshot.query_revision;
+        let _: diary_core::model::SearchPhase = SearchSnapshot.phase;
+        let _: Vec<diary_core::model::SearchHit> = SearchSnapshot.results;
+        let _: Option<String> = SearchSnapshot.cursor;
+        let _: diary_core::model::Coverage = SearchSnapshot.index_coverage;
+        let _: Vec<String> = SearchSnapshot.warnings;
+    }
+    {
         let SourceLocation = None::<diary_core::model::SourceLocation>.unwrap();
         let _: String = SourceLocation.source_ref;
         let _: diary_core::model::SourceLocator = SourceLocation.locator;
@@ -2230,6 +2793,11 @@ const _: fn() = || {
         let _: Option<String> = SourceRevision.asset_id;
         let _: diary_core::model::AuthorType = SourceRevision.author_type;
         let _: chrono::DateTime<chrono::Utc> = SourceRevision.occurred_at;
+    }
+    {
+        let TextRange = None::<diary_core::model::TextRange>.unwrap();
+        let _: i64 = TextRange.start;
+        let _: i64 = TextRange.end;
     }
 };
 
@@ -2846,6 +3414,18 @@ impl SseDecode for Vec<diary_core::model::JobState> {
     }
 }
 
+impl SseDecode for Vec<diary_core::model::MatchedBy> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<diary_core::model::MatchedBy>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<f64> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2870,6 +3450,42 @@ impl SseDecode for Vec<u8> {
     }
 }
 
+impl SseDecode for Vec<diary_core::model::SearchHit> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<diary_core::model::SearchHit>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<diary_core::model::SourceKind> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<diary_core::model::SourceKind>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<diary_core::model::TextRange> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<diary_core::model::TextRange>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for diary_core::model::LocatorType {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2882,6 +3498,19 @@ impl SseDecode for diary_core::model::LocatorType {
             4 => diary_core::model::LocatorType::Image,
             5 => diary_core::model::LocatorType::File,
             _ => unreachable!("Invalid variant for LocatorType: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for diary_core::model::MatchedBy {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => diary_core::model::MatchedBy::Keyword,
+            1 => diary_core::model::MatchedBy::Semantic,
+            2 => diary_core::model::MatchedBy::Metadata,
+            _ => unreachable!("Invalid variant for MatchedBy: {}", inner),
         };
     }
 }
@@ -3044,6 +3673,17 @@ impl SseDecode for Option<diary_core::model::LocatorType> {
     }
 }
 
+impl SseDecode for Option<diary_core::model::MatchedBy> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<diary_core::model::MatchedBy>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<diary_core::model::ProcessingStatus> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3064,6 +3704,39 @@ impl SseDecode for Option<diary_core::model::RecordingState> {
             return Some(<diary_core::model::RecordingState>::sse_decode(
                 deserializer,
             ));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<diary_core::model::SearchMode> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<diary_core::model::SearchMode>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<diary_core::model::SearchPhase> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<diary_core::model::SearchPhase>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
+impl SseDecode for Option<diary_core::model::SourceLocator> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<diary_core::model::SourceLocator>::sse_decode(deserializer));
         } else {
             return None;
         }
@@ -3183,6 +3856,140 @@ impl SseDecode for crate::api::RecoverySummary {
     }
 }
 
+impl SseDecode for diary_core::model::SearchFilters {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_fromDayKey = <Option<String>>::sse_decode(deserializer);
+        let mut var_toDayKey = <Option<String>>::sse_decode(deserializer);
+        let mut var_kinds = <Vec<diary_core::model::SourceKind>>::sse_decode(deserializer);
+        let mut var_sourceScope = <Option<Vec<String>>>::sse_decode(deserializer);
+        let mut var_includeOldDiaryVersions = <bool>::sse_decode(deserializer);
+        let mut var_includeTrashed = <bool>::sse_decode(deserializer);
+        return diary_core::model::SearchFilters {
+            from_day_key: var_fromDayKey,
+            to_day_key: var_toDayKey,
+            kinds: var_kinds,
+            source_scope: var_sourceScope,
+            include_old_diary_versions: var_includeOldDiaryVersions,
+            include_trashed: var_includeTrashed,
+        };
+    }
+}
+
+impl SseDecode for diary_core::model::SearchHit {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_hitId = <String>::sse_decode(deserializer);
+        let mut var_groupId = <String>::sse_decode(deserializer);
+        let mut var_sourceKind = <diary_core::model::SourceKind>::sse_decode(deserializer);
+        let mut var_matchedBy = <Vec<diary_core::model::MatchedBy>>::sse_decode(deserializer);
+        let mut var_coverage = <diary_core::model::Coverage>::sse_decode(deserializer);
+        let mut var_sourceId = <Option<String>>::sse_decode(deserializer);
+        let mut var_revisionId = <Option<String>>::sse_decode(deserializer);
+        let mut var_dayKey = <Option<String>>::sse_decode(deserializer);
+        let mut var_title = <Option<String>>::sse_decode(deserializer);
+        let mut var_snippet = <Option<String>>::sse_decode(deserializer);
+        let mut var_highlights = <Vec<diary_core::model::TextRange>>::sse_decode(deserializer);
+        let mut var_locator = <Option<diary_core::model::SourceLocator>>::sse_decode(deserializer);
+        return diary_core::model::SearchHit {
+            hit_id: var_hitId,
+            group_id: var_groupId,
+            source_kind: var_sourceKind,
+            matched_by: var_matchedBy,
+            coverage: var_coverage,
+            source_id: var_sourceId,
+            revision_id: var_revisionId,
+            day_key: var_dayKey,
+            title: var_title,
+            snippet: var_snippet,
+            highlights: var_highlights,
+            locator: var_locator,
+        };
+    }
+}
+
+impl SseDecode for diary_core::model::SearchMode {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => diary_core::model::SearchMode::Keyword,
+            1 => diary_core::model::SearchMode::Semantic,
+            2 => diary_core::model::SearchMode::Hybrid,
+            _ => unreachable!("Invalid variant for SearchMode: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for diary_core::model::SearchPhase {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => diary_core::model::SearchPhase::Initial,
+            1 => diary_core::model::SearchPhase::KeywordReady,
+            2 => diary_core::model::SearchPhase::HybridReady,
+            3 => diary_core::model::SearchPhase::Done,
+            4 => diary_core::model::SearchPhase::Cancelled,
+            _ => unreachable!("Invalid variant for SearchPhase: {}", inner),
+        };
+    }
+}
+
+impl SseDecode for diary_core::model::SearchRequest {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_query = <String>::sse_decode(deserializer);
+        let mut var_mode = <diary_core::model::SearchMode>::sse_decode(deserializer);
+        let mut var_filters = <diary_core::model::SearchFilters>::sse_decode(deserializer);
+        let mut var_pageSize = <i64>::sse_decode(deserializer);
+        return diary_core::model::SearchRequest {
+            query: var_query,
+            mode: var_mode,
+            filters: var_filters,
+            page_size: var_pageSize,
+        };
+    }
+}
+
+impl SseDecode for diary_core::model::SearchSnapshot {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_sessionId = <String>::sse_decode(deserializer);
+        let mut var_queryRevision = <i64>::sse_decode(deserializer);
+        let mut var_phase = <diary_core::model::SearchPhase>::sse_decode(deserializer);
+        let mut var_results = <Vec<diary_core::model::SearchHit>>::sse_decode(deserializer);
+        let mut var_cursor = <Option<String>>::sse_decode(deserializer);
+        let mut var_indexCoverage = <diary_core::model::Coverage>::sse_decode(deserializer);
+        let mut var_warnings = <Vec<String>>::sse_decode(deserializer);
+        return diary_core::model::SearchSnapshot {
+            session_id: var_sessionId,
+            query_revision: var_queryRevision,
+            phase: var_phase,
+            results: var_results,
+            cursor: var_cursor,
+            index_coverage: var_indexCoverage,
+            warnings: var_warnings,
+        };
+    }
+}
+
+impl SseDecode for diary_core::model::SourceKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut inner = <i32>::sse_decode(deserializer);
+        return match inner {
+            0 => diary_core::model::SourceKind::Text,
+            1 => diary_core::model::SourceKind::Image,
+            2 => diary_core::model::SourceKind::Audio,
+            3 => diary_core::model::SourceKind::Video,
+            4 => diary_core::model::SourceKind::File,
+            5 => diary_core::model::SourceKind::Link,
+            _ => unreachable!("Invalid variant for SourceKind: {}", inner),
+        };
+    }
+}
+
 impl SseDecode for diary_core::model::SourceLocation {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3251,6 +4058,18 @@ impl SseDecode for diary_core::model::SourceRevision {
     }
 }
 
+impl SseDecode for diary_core::model::TextRange {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_start = <i64>::sse_decode(deserializer);
+        let mut var_end = <i64>::sse_decode(deserializer);
+        return diary_core::model::TextRange {
+            start: var_start,
+            end: var_end,
+        };
+    }
+}
+
 impl SseDecode for u32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -3286,109 +4105,134 @@ fn pde_ffi_dispatcher_primary_impl(
 ) {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-        1 => wire__crate__api__BridgeSession_capabilities_impl(port, ptr, rust_vec_len, data_len),
-        2 => wire__crate__api__BridgeSession_commit_impl(port, ptr, rust_vec_len, data_len),
-        3 => wire__crate__api__BridgeSession_create_draft_impl(port, ptr, rust_vec_len, data_len),
-        4 => wire__crate__api__BridgeSession_events_since_impl(port, ptr, rust_vec_len, data_len),
-        5 => wire__crate__api__BridgeSession_extract_source_impl(port, ptr, rust_vec_len, data_len),
-        6 => wire__crate__api__BridgeSession_extracted_content_impl(
+        1 => wire__crate__api__BridgeSession_cancel_search_impl(port, ptr, rust_vec_len, data_len),
+        2 => wire__crate__api__BridgeSession_capabilities_impl(port, ptr, rust_vec_len, data_len),
+        3 => wire__crate__api__BridgeSession_commit_impl(port, ptr, rust_vec_len, data_len),
+        4 => wire__crate__api__BridgeSession_create_draft_impl(port, ptr, rust_vec_len, data_len),
+        5 => wire__crate__api__BridgeSession_events_since_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__BridgeSession_extract_source_impl(port, ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__BridgeSession_extracted_content_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        7 => wire__crate__api__BridgeSession_finish_import_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__BridgeSession_get_capture_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__BridgeSession_get_job_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__BridgeSession_import_status_impl(port, ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__BridgeSession_index_status_impl(port, ptr, rust_vec_len, data_len),
-        12 => wire__crate__api__BridgeSession_info_impl(port, ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__BridgeSession_list_captures_impl(port, ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__BridgeSession_list_jobs_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__BridgeSession_locate_source_impl(port, ptr, rust_vec_len, data_len),
-        16 => wire__crate__api__BridgeSession_next_wakeup_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__BridgeSession_open_impl(port, ptr, rust_vec_len, data_len),
-        18 => {
+        8 => wire__crate__api__BridgeSession_finish_import_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__BridgeSession_get_capture_impl(port, ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__BridgeSession_get_job_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__BridgeSession_import_status_impl(port, ptr, rust_vec_len, data_len),
+        12 => wire__crate__api__BridgeSession_index_status_impl(port, ptr, rust_vec_len, data_len),
+        13 => wire__crate__api__BridgeSession_info_impl(port, ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__BridgeSession_list_captures_impl(port, ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__BridgeSession_list_jobs_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__BridgeSession_locate_source_impl(port, ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__BridgeSession_next_wakeup_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__BridgeSession_open_impl(port, ptr, rust_vec_len, data_len),
+        19 => {
             wire__crate__api__BridgeSession_prepare_import_impl(port, ptr, rust_vec_len, data_len)
         }
-        19 => wire__crate__api__BridgeSession_save_draft_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__diary_core__model__asset_storage_state_from_wire_impl(
-            port,
-            ptr,
-            rust_vec_len,
-            data_len,
-        ),
-        21 => wire__diary_core__model__asset_storage_state_wire_impl(
-            port,
-            ptr,
-            rust_vec_len,
-            data_len,
-        ),
+        20 => wire__crate__api__BridgeSession_save_draft_impl(port, ptr, rust_vec_len, data_len),
+        21 => {
+            wire__crate__api__BridgeSession_search_next_page_impl(port, ptr, rust_vec_len, data_len)
+        }
         22 => {
+            wire__crate__api__BridgeSession_search_snapshot_impl(port, ptr, rust_vec_len, data_len)
+        }
+        23 => wire__crate__api__BridgeSession_start_search_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__diary_core__model__asset_storage_state_from_wire_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        25 => wire__diary_core__model__asset_storage_state_wire_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        26 => {
             wire__diary_core__model__author_type_from_wire_impl(port, ptr, rust_vec_len, data_len)
         }
-        23 => wire__diary_core__model__author_type_wire_impl(port, ptr, rust_vec_len, data_len),
-        24 => {
+        27 => wire__diary_core__model__author_type_wire_impl(port, ptr, rust_vec_len, data_len),
+        28 => {
             wire__diary_core__model__capture_state_from_wire_impl(port, ptr, rust_vec_len, data_len)
         }
-        25 => wire__diary_core__model__capture_state_wire_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__diary_core__model__coverage_from_wire_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__diary_core__model__coverage_wire_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__diary_core__model__event_type_from_wire_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__diary_core__model__event_type_wire_impl(port, ptr, rust_vec_len, data_len),
-        30 => {
+        29 => wire__diary_core__model__capture_state_wire_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__diary_core__model__coverage_from_wire_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__diary_core__model__coverage_wire_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__diary_core__model__event_type_from_wire_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__diary_core__model__event_type_wire_impl(port, ptr, rust_vec_len, data_len),
+        34 => {
             wire__diary_core__model__import_origin_from_wire_impl(port, ptr, rust_vec_len, data_len)
         }
-        31 => wire__diary_core__model__import_origin_wire_impl(port, ptr, rust_vec_len, data_len),
-        32 => {
+        35 => wire__diary_core__model__import_origin_wire_impl(port, ptr, rust_vec_len, data_len),
+        36 => {
             wire__diary_core__model__import_state_from_wire_impl(port, ptr, rust_vec_len, data_len)
         }
-        33 => wire__diary_core__model__import_state_is_in_flight_impl(
+        37 => wire__diary_core__model__import_state_is_in_flight_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        34 => wire__diary_core__model__import_state_wire_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__diary_core__model__job_priority_value_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__diary_core__model__job_state_from_wire_impl(port, ptr, rust_vec_len, data_len),
-        37 => {
+        38 => wire__diary_core__model__import_state_wire_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__diary_core__model__job_priority_value_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__diary_core__model__job_state_from_wire_impl(port, ptr, rust_vec_len, data_len),
+        41 => {
             wire__diary_core__model__job_state_is_terminal_impl(port, ptr, rust_vec_len, data_len)
         }
-        38 => wire__diary_core__model__job_state_wire_impl(port, ptr, rust_vec_len, data_len),
-        39 => {
+        42 => wire__diary_core__model__job_state_wire_impl(port, ptr, rust_vec_len, data_len),
+        43 => {
             wire__diary_core__model__locator_type_from_wire_impl(port, ptr, rust_vec_len, data_len)
         }
-        40 => wire__diary_core__model__locator_type_wire_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__diary_core__model__processing_status_from_wire_impl(
+        44 => wire__diary_core__model__locator_type_wire_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__diary_core__model__matched_by_from_wire_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__diary_core__model__matched_by_wire_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__diary_core__model__processing_status_from_wire_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        42 => {
+        48 => {
             wire__diary_core__model__processing_status_wire_impl(port, ptr, rust_vec_len, data_len)
         }
-        43 => wire__diary_core__model__processing_summary_default_impl(
+        49 => wire__diary_core__model__processing_summary_default_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        44 => wire__diary_core__model__recording_state_from_wire_impl(
+        50 => wire__diary_core__model__recording_state_from_wire_impl(
             port,
             ptr,
             rust_vec_len,
             data_len,
         ),
-        45 => {
+        51 => {
             wire__diary_core__model__recording_state_is_open_impl(port, ptr, rust_vec_len, data_len)
         }
-        46 => wire__diary_core__model__recording_state_wire_impl(port, ptr, rust_vec_len, data_len),
-        47 => {
+        52 => wire__diary_core__model__recording_state_wire_impl(port, ptr, rust_vec_len, data_len),
+        53 => {
+            wire__diary_core__model__search_filters_default_impl(port, ptr, rust_vec_len, data_len)
+        }
+        54 => {
+            wire__diary_core__model__search_mode_from_wire_impl(port, ptr, rust_vec_len, data_len)
+        }
+        55 => wire__diary_core__model__search_mode_wire_impl(port, ptr, rust_vec_len, data_len),
+        56 => {
+            wire__diary_core__model__search_phase_from_wire_impl(port, ptr, rust_vec_len, data_len)
+        }
+        57 => wire__diary_core__model__search_phase_wire_impl(port, ptr, rust_vec_len, data_len),
+        58 => {
+            wire__diary_core__model__source_kind_from_wire_impl(port, ptr, rust_vec_len, data_len)
+        }
+        59 => wire__diary_core__model__source_kind_wire_impl(port, ptr, rust_vec_len, data_len),
+        60 => {
             wire__diary_core__model__source_locator_document_impl(port, ptr, rust_vec_len, data_len)
         }
-        48 => wire__diary_core__model__source_locator_text_range_impl(
+        61 => wire__diary_core__model__source_locator_text_range_impl(
             port,
             ptr,
             rust_vec_len,
@@ -4044,6 +4888,28 @@ impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<diary_core::model::LocatorType
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for FrbWrapper<diary_core::model::MatchedBy> {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self.0 {
+            diary_core::model::MatchedBy::Keyword => 0.into_dart(),
+            diary_core::model::MatchedBy::Semantic => 1.into_dart(),
+            diary_core::model::MatchedBy::Metadata => 2.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for FrbWrapper<diary_core::model::MatchedBy>
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<diary_core::model::MatchedBy>>
+    for diary_core::model::MatchedBy
+{
+    fn into_into_dart(self) -> FrbWrapper<diary_core::model::MatchedBy> {
+        self.into()
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for FrbWrapper<diary_core::model::ProcessingStatus> {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         match self.0 {
@@ -4140,6 +5006,185 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::RecoverySummary>
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for FrbWrapper<diary_core::model::SearchFilters> {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.0.from_day_key.into_into_dart().into_dart(),
+            self.0.to_day_key.into_into_dart().into_dart(),
+            self.0.kinds.into_into_dart().into_dart(),
+            self.0.source_scope.into_into_dart().into_dart(),
+            self.0
+                .include_old_diary_versions
+                .into_into_dart()
+                .into_dart(),
+            self.0.include_trashed.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for FrbWrapper<diary_core::model::SearchFilters>
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<diary_core::model::SearchFilters>>
+    for diary_core::model::SearchFilters
+{
+    fn into_into_dart(self) -> FrbWrapper<diary_core::model::SearchFilters> {
+        self.into()
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for FrbWrapper<diary_core::model::SearchHit> {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.0.hit_id.into_into_dart().into_dart(),
+            self.0.group_id.into_into_dart().into_dart(),
+            self.0.source_kind.into_into_dart().into_dart(),
+            self.0.matched_by.into_into_dart().into_dart(),
+            self.0.coverage.into_into_dart().into_dart(),
+            self.0.source_id.into_into_dart().into_dart(),
+            self.0.revision_id.into_into_dart().into_dart(),
+            self.0.day_key.into_into_dart().into_dart(),
+            self.0.title.into_into_dart().into_dart(),
+            self.0.snippet.into_into_dart().into_dart(),
+            self.0.highlights.into_into_dart().into_dart(),
+            self.0.locator.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for FrbWrapper<diary_core::model::SearchHit>
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<diary_core::model::SearchHit>>
+    for diary_core::model::SearchHit
+{
+    fn into_into_dart(self) -> FrbWrapper<diary_core::model::SearchHit> {
+        self.into()
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for FrbWrapper<diary_core::model::SearchMode> {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self.0 {
+            diary_core::model::SearchMode::Keyword => 0.into_dart(),
+            diary_core::model::SearchMode::Semantic => 1.into_dart(),
+            diary_core::model::SearchMode::Hybrid => 2.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for FrbWrapper<diary_core::model::SearchMode>
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<diary_core::model::SearchMode>>
+    for diary_core::model::SearchMode
+{
+    fn into_into_dart(self) -> FrbWrapper<diary_core::model::SearchMode> {
+        self.into()
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for FrbWrapper<diary_core::model::SearchPhase> {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self.0 {
+            diary_core::model::SearchPhase::Initial => 0.into_dart(),
+            diary_core::model::SearchPhase::KeywordReady => 1.into_dart(),
+            diary_core::model::SearchPhase::HybridReady => 2.into_dart(),
+            diary_core::model::SearchPhase::Done => 3.into_dart(),
+            diary_core::model::SearchPhase::Cancelled => 4.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for FrbWrapper<diary_core::model::SearchPhase>
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<diary_core::model::SearchPhase>>
+    for diary_core::model::SearchPhase
+{
+    fn into_into_dart(self) -> FrbWrapper<diary_core::model::SearchPhase> {
+        self.into()
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for FrbWrapper<diary_core::model::SearchRequest> {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.0.query.into_into_dart().into_dart(),
+            self.0.mode.into_into_dart().into_dart(),
+            self.0.filters.into_into_dart().into_dart(),
+            self.0.page_size.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for FrbWrapper<diary_core::model::SearchRequest>
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<diary_core::model::SearchRequest>>
+    for diary_core::model::SearchRequest
+{
+    fn into_into_dart(self) -> FrbWrapper<diary_core::model::SearchRequest> {
+        self.into()
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for FrbWrapper<diary_core::model::SearchSnapshot> {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.0.session_id.into_into_dart().into_dart(),
+            self.0.query_revision.into_into_dart().into_dart(),
+            self.0.phase.into_into_dart().into_dart(),
+            self.0.results.into_into_dart().into_dart(),
+            self.0.cursor.into_into_dart().into_dart(),
+            self.0.index_coverage.into_into_dart().into_dart(),
+            self.0.warnings.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for FrbWrapper<diary_core::model::SearchSnapshot>
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<diary_core::model::SearchSnapshot>>
+    for diary_core::model::SearchSnapshot
+{
+    fn into_into_dart(self) -> FrbWrapper<diary_core::model::SearchSnapshot> {
+        self.into()
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for FrbWrapper<diary_core::model::SourceKind> {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        match self.0 {
+            diary_core::model::SourceKind::Text => 0.into_dart(),
+            diary_core::model::SourceKind::Image => 1.into_dart(),
+            diary_core::model::SourceKind::Audio => 2.into_dart(),
+            diary_core::model::SourceKind::Video => 3.into_dart(),
+            diary_core::model::SourceKind::File => 4.into_dart(),
+            diary_core::model::SourceKind::Link => 5.into_dart(),
+            _ => unreachable!(),
+        }
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for FrbWrapper<diary_core::model::SourceKind>
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<diary_core::model::SourceKind>>
+    for diary_core::model::SourceKind
+{
+    fn into_into_dart(self) -> FrbWrapper<diary_core::model::SourceKind> {
+        self.into()
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for FrbWrapper<diary_core::model::SourceLocation> {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -4215,6 +5260,27 @@ impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<diary_core::model::SourceRevis
     for diary_core::model::SourceRevision
 {
     fn into_into_dart(self) -> FrbWrapper<diary_core::model::SourceRevision> {
+        self.into()
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for FrbWrapper<diary_core::model::TextRange> {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.0.start.into_into_dart().into_dart(),
+            self.0.end.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for FrbWrapper<diary_core::model::TextRange>
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<FrbWrapper<diary_core::model::TextRange>>
+    for diary_core::model::TextRange
+{
+    fn into_into_dart(self) -> FrbWrapper<diary_core::model::TextRange> {
         self.into()
     }
 }
@@ -4716,6 +5782,16 @@ impl SseEncode for Vec<diary_core::model::JobState> {
     }
 }
 
+impl SseEncode for Vec<diary_core::model::MatchedBy> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <diary_core::model::MatchedBy>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<f64> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4736,6 +5812,36 @@ impl SseEncode for Vec<u8> {
     }
 }
 
+impl SseEncode for Vec<diary_core::model::SearchHit> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <diary_core::model::SearchHit>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<diary_core::model::SourceKind> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <diary_core::model::SourceKind>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<diary_core::model::TextRange> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <diary_core::model::TextRange>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for diary_core::model::LocatorType {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4747,6 +5853,23 @@ impl SseEncode for diary_core::model::LocatorType {
                 diary_core::model::LocatorType::Document => 3,
                 diary_core::model::LocatorType::Image => 4,
                 diary_core::model::LocatorType::File => 5,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for diary_core::model::MatchedBy {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                diary_core::model::MatchedBy::Keyword => 0,
+                diary_core::model::MatchedBy::Semantic => 1,
+                diary_core::model::MatchedBy::Metadata => 2,
                 _ => {
                     unimplemented!("");
                 }
@@ -4896,6 +6019,16 @@ impl SseEncode for Option<diary_core::model::LocatorType> {
     }
 }
 
+impl SseEncode for Option<diary_core::model::MatchedBy> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <diary_core::model::MatchedBy>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<diary_core::model::ProcessingStatus> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -4912,6 +6045,36 @@ impl SseEncode for Option<diary_core::model::RecordingState> {
         <bool>::sse_encode(self.is_some(), serializer);
         if let Some(value) = self {
             <diary_core::model::RecordingState>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<diary_core::model::SearchMode> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <diary_core::model::SearchMode>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<diary_core::model::SearchPhase> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <diary_core::model::SearchPhase>::sse_encode(value, serializer);
+        }
+    }
+}
+
+impl SseEncode for Option<diary_core::model::SourceLocator> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <diary_core::model::SourceLocator>::sse_encode(value, serializer);
         }
     }
 }
@@ -5019,6 +6182,115 @@ impl SseEncode for crate::api::RecoverySummary {
     }
 }
 
+impl SseEncode for diary_core::model::SearchFilters {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <Option<String>>::sse_encode(self.from_day_key, serializer);
+        <Option<String>>::sse_encode(self.to_day_key, serializer);
+        <Vec<diary_core::model::SourceKind>>::sse_encode(self.kinds, serializer);
+        <Option<Vec<String>>>::sse_encode(self.source_scope, serializer);
+        <bool>::sse_encode(self.include_old_diary_versions, serializer);
+        <bool>::sse_encode(self.include_trashed, serializer);
+    }
+}
+
+impl SseEncode for diary_core::model::SearchHit {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.hit_id, serializer);
+        <String>::sse_encode(self.group_id, serializer);
+        <diary_core::model::SourceKind>::sse_encode(self.source_kind, serializer);
+        <Vec<diary_core::model::MatchedBy>>::sse_encode(self.matched_by, serializer);
+        <diary_core::model::Coverage>::sse_encode(self.coverage, serializer);
+        <Option<String>>::sse_encode(self.source_id, serializer);
+        <Option<String>>::sse_encode(self.revision_id, serializer);
+        <Option<String>>::sse_encode(self.day_key, serializer);
+        <Option<String>>::sse_encode(self.title, serializer);
+        <Option<String>>::sse_encode(self.snippet, serializer);
+        <Vec<diary_core::model::TextRange>>::sse_encode(self.highlights, serializer);
+        <Option<diary_core::model::SourceLocator>>::sse_encode(self.locator, serializer);
+    }
+}
+
+impl SseEncode for diary_core::model::SearchMode {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                diary_core::model::SearchMode::Keyword => 0,
+                diary_core::model::SearchMode::Semantic => 1,
+                diary_core::model::SearchMode::Hybrid => 2,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for diary_core::model::SearchPhase {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                diary_core::model::SearchPhase::Initial => 0,
+                diary_core::model::SearchPhase::KeywordReady => 1,
+                diary_core::model::SearchPhase::HybridReady => 2,
+                diary_core::model::SearchPhase::Done => 3,
+                diary_core::model::SearchPhase::Cancelled => 4,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for diary_core::model::SearchRequest {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.query, serializer);
+        <diary_core::model::SearchMode>::sse_encode(self.mode, serializer);
+        <diary_core::model::SearchFilters>::sse_encode(self.filters, serializer);
+        <i64>::sse_encode(self.page_size, serializer);
+    }
+}
+
+impl SseEncode for diary_core::model::SearchSnapshot {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.session_id, serializer);
+        <i64>::sse_encode(self.query_revision, serializer);
+        <diary_core::model::SearchPhase>::sse_encode(self.phase, serializer);
+        <Vec<diary_core::model::SearchHit>>::sse_encode(self.results, serializer);
+        <Option<String>>::sse_encode(self.cursor, serializer);
+        <diary_core::model::Coverage>::sse_encode(self.index_coverage, serializer);
+        <Vec<String>>::sse_encode(self.warnings, serializer);
+    }
+}
+
+impl SseEncode for diary_core::model::SourceKind {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(
+            match self {
+                diary_core::model::SourceKind::Text => 0,
+                diary_core::model::SourceKind::Image => 1,
+                diary_core::model::SourceKind::Audio => 2,
+                diary_core::model::SourceKind::Video => 3,
+                diary_core::model::SourceKind::File => 4,
+                diary_core::model::SourceKind::Link => 5,
+                _ => {
+                    unimplemented!("");
+                }
+            },
+            serializer,
+        );
+    }
+}
+
 impl SseEncode for diary_core::model::SourceLocation {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -5056,6 +6328,14 @@ impl SseEncode for diary_core::model::SourceRevision {
         <Option<String>>::sse_encode(self.asset_id, serializer);
         <diary_core::model::AuthorType>::sse_encode(self.author_type, serializer);
         <chrono::DateTime<chrono::Utc>>::sse_encode(self.occurred_at, serializer);
+    }
+}
+
+impl SseEncode for diary_core::model::TextRange {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i64>::sse_encode(self.start, serializer);
+        <i64>::sse_encode(self.end, serializer);
     }
 }
 
