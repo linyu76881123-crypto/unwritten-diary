@@ -1,7 +1,7 @@
 //! 契约第 7 节的错误码与核心内部错误类型。
 //!
-//! 这里只放 B1a 用到的那几个码。`wire()` 的字符串必须与契约文档、
-//! `packages/diary_api` 的 `DiaryErrorCode` 以及桥接层保持一致。
+//! `wire()` 的字符串必须与契约第 7 节、`packages/diary_api` 的
+//! `DiaryErrorCode` 以及桥接层保持一致。
 
 use thiserror::Error;
 
@@ -26,6 +26,10 @@ pub enum ErrorCode {
     IntegrityFailed,
     /// 这个格式还提取不了正文。
     UnsupportedFormat,
+    /// 检索会话的快照已失效（索引变了或会话不存在），前端应重新发起查询。
+    SearchExpired,
+    /// 游标过期或不属于这个会话，前端应从头翻。
+    CursorExpired,
 }
 
 impl ErrorCode {
@@ -40,6 +44,8 @@ impl ErrorCode {
             Self::PermissionDenied => "permission_denied",
             Self::IntegrityFailed => "integrity_failed",
             Self::UnsupportedFormat => "unsupported_format",
+            Self::SearchExpired => "search_expired",
+            Self::CursorExpired => "cursor_expired",
         }
     }
 }
@@ -75,6 +81,12 @@ pub enum CoreError {
     #[error("提取失败：{reason}")]
     ExtractionFailed { reason: String },
 
+    #[error("检索会话已失效：{reason}")]
+    SearchExpired { reason: String },
+
+    #[error("检索游标已失效：{reason}")]
+    CursorExpired { reason: String },
+
     #[error("文件操作失败：{0}")]
     Io(#[from] std::io::Error),
 
@@ -100,6 +112,8 @@ impl CoreError {
             Self::AssetMissing { .. } => ErrorCode::AssetMissing,
             Self::IntegrityFailed { .. } => ErrorCode::IntegrityFailed,
             Self::ExtractionFailed { .. } => ErrorCode::UnsupportedFormat,
+            Self::SearchExpired { .. } => ErrorCode::SearchExpired,
+            Self::CursorExpired { .. } => ErrorCode::CursorExpired,
             Self::Io(err) => io_code(err),
             Self::CorruptedData { .. } | Self::Serialization(_) => ErrorCode::InvalidState,
             Self::Database(err) => database_code(err),
@@ -107,8 +121,12 @@ impl CoreError {
     }
 
     /// 是否值得原样重试。磁盘满、版本冲突这些重试也不会好。
+    ///
+    /// 两个检索失效码是例外：契约第 7 节给它们的处理是「安静刷新当前范围 /
+    /// 丢弃旧会话结果并重取」，也就是「重来一次」是正确动作，而
+    /// `packages/diary_api` 里对应的异常也把 `retryable` 设成 true。
     pub fn retryable(&self) -> bool {
-        false
+        matches!(self, Self::SearchExpired { .. } | Self::CursorExpired { .. })
     }
 }
 
