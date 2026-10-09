@@ -576,6 +576,12 @@ impl Core {
         jobs::list(self, states, limit)
     }
 
+    /// 按状态精确计数。**不要用 `list_jobs` 的长度当计数**：它为分页把
+    /// limit 夹在 200 以内，任务多的时候会少报。
+    pub fn count_jobs(&self, states: Option<&[JobState]>) -> Result<i64> {
+        jobs::count(self, states)
+    }
+
     /// 领取下一个到期任务：优先级高的先跑。执行本身属于后面的切片。
     pub fn claim_next_due_job(&mut self, now: DateTime<Utc>) -> Result<Option<Job>> {
         jobs::claim_next_due(self, now)

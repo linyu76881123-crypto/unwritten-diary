@@ -467,3 +467,39 @@ fn unknown_recording_or_job_reports_not_found() {
     assert_eq!(recovery.state, RecordingState::Idle);
     assert!(recovery.recording_id.is_none());
 }
+
+/// 回归：按状态计数必须精确，不能用 `list_jobs` 的长度代替。
+///
+/// 桥接的 `info().recovery.pendingJobs` 曾经写成
+/// `list_jobs(Some(&[Queued, RetryWait]), 1000)?.len()`，而 `list()` 为分页把
+/// limit 夹在 200 以内（`jobs.rs`），所以 201 个以上的待办任务会被少报成 200。
+/// 这条测试把两个数字都钉住：计数必须精确，而分页列表本来就只有 200 条。
+#[test]
+fn counting_pending_jobs_is_exact_beyond_the_page_limit() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut core = new_core(dir.path());
+
+    const TOTAL: usize = 250;
+    for index in 0..TOTAL {
+        core.enqueue_job(
+            NewJob::new("extract", JobPriority::BackgroundExtract).targeting(vec![format!("src_{index}")]),
+        )
+        .unwrap();
+    }
+
+    assert_eq!(
+        core.count_jobs(Some(&[JobState::Queued, JobState::RetryWait]))
+            .unwrap(),
+        TOTAL as i64,
+        "计数必须精确，不能被分页上限截断"
+    );
+    assert_eq!(
+        core.list_jobs(Some(&[JobState::Queued, JobState::RetryWait]), 1000)
+            .unwrap()
+            .len(),
+        200,
+        "分页列表的上限就是 200——正因如此，不能拿它的长度当计数"
+    );
+    // 不带状态筛选时，总数同样精确。
+    assert_eq!(core.count_jobs(None).unwrap(), TOTAL as i64);
+}

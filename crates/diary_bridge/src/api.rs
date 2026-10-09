@@ -267,8 +267,10 @@ fn recovery_summary(core: &Core) -> Result<RecoverySummary, CoreError> {
     // 数字直接来自库，不猜。
     let recoverable_imports = core.count_imports_in_flight()? as u32;
     let open_recordings = core.count_open_recordings()? as u32;
-    let pending_jobs =
-        core.list_jobs(Some(&[JobState::Queued, JobState::RetryWait]), 1000)?.len() as u32;
+    // 走精确计数：`list_jobs` 的 limit 会被夹到 200，拿它当计数会在任务多时少报。
+    let pending_jobs = core
+        .count_jobs(Some(&[JobState::Queued, JobState::RetryWait]))?
+        as u32;
 
     let mut notes = Vec::new();
     if recoverable_imports > 0 {

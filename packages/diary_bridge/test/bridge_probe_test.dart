@@ -149,6 +149,53 @@ void main() {
     expect(location.assetId, assetId);
   });
 
+  test('待办任务超过 200 时，恢复摘要仍报真实数字', () async {
+    // 回归：桥接曾用 `list_jobs(..., 1000).len()` 当计数，而核心的 list 会把
+    // limit 夹到 200，所以第 201 个待办任务开始就少报。这里用真实路径堆出
+    // 205 个排队中的 extract 任务（每次导入完成时核心排一个），再读恢复摘要。
+    const total = 205;
+    final draft = await session.createDraft(
+      timeZone: 'Asia/Shanghai',
+      utcOffsetMinutes: 480,
+      operationId: 'op-bulk-create',
+    );
+    final bytes = utf8.encode('待办任务计数验证\n');
+
+    for (var index = 0; index < total; index++) {
+      final ticket = await session.prepareImport(
+        captureId: draft.id,
+        displayName: 'bulk-$index.txt',
+        mimeHint: 'text/plain',
+        origin: ImportOrigin.picker,
+        operationId: 'op-bulk-$index-prepare',
+      );
+      File(ticket.stagingTicket).writeAsBytesSync(bytes);
+      await session.finishImport(
+        importId: ticket.importId,
+        stagingTicket: ticket.stagingTicket,
+        manifest: ImportManifest(
+          copiedBytes: bytes.length,
+          sha256: sha256.convert(bytes).toString(),
+          detectedMime: 'text/plain',
+          originalName: 'bulk-$index.txt',
+        ),
+      );
+    }
+
+    final info = await session.info();
+    expect(
+      info.recovery.pendingJobs,
+      total,
+      reason: '计数必须精确：分页列表的上限是 200，不能拿它的长度当计数',
+    );
+    // 分页接口本身仍然守自己的上限，两者不冲突。
+    final page = await session.listJobs(
+      states: [JobState.queued, JobState.retryWait],
+      limit: 1000,
+    );
+    expect(page.length, 200);
+  });
+
   test('核心错误映射成契约错误码', () async {
     await expectLater(
       session.getCapture(captureId: 'cap_不存在'),
