@@ -2445,8 +2445,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   LibraryInfo dco_decode_library_info(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 6)
-      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
+    if (arr.length != 8)
+      throw Exception('unexpected arr length: expect 8 but see ${arr.length}');
     return LibraryInfo(
       apiVersion: dco_decode_String(arr[0]),
       dataSchemaVersion: dco_decode_i_64(arr[1]),
@@ -2454,6 +2454,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       libraryId: dco_decode_String(arr[3]),
       capabilities: dco_decode_list_String(arr[4]),
       recovery: dco_decode_recovery_summary(arr[5]),
+      captureCount: dco_decode_i_64(arr[6]),
+      lastEventSequence: dco_decode_i_64(arr[7]),
     );
   }
 
@@ -3310,6 +3312,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_libraryId = sse_decode_String(deserializer);
     var var_capabilities = sse_decode_list_String(deserializer);
     var var_recovery = sse_decode_recovery_summary(deserializer);
+    var var_captureCount = sse_decode_i_64(deserializer);
+    var var_lastEventSequence = sse_decode_i_64(deserializer);
     return LibraryInfo(
       apiVersion: var_apiVersion,
       dataSchemaVersion: var_dataSchemaVersion,
@@ -3317,6 +3321,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       libraryId: var_libraryId,
       capabilities: var_capabilities,
       recovery: var_recovery,
+      captureCount: var_captureCount,
+      lastEventSequence: var_lastEventSequence,
     );
   }
 
@@ -4282,6 +4288,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.libraryId, serializer);
     sse_encode_list_String(self.capabilities, serializer);
     sse_encode_recovery_summary(self.recovery, serializer);
+    sse_encode_i_64(self.captureCount, serializer);
+    sse_encode_i_64(self.lastEventSequence, serializer);
   }
 
   @protected

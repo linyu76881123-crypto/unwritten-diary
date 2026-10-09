@@ -2761,6 +2761,8 @@ impl SseDecode for crate::api::LibraryInfo {
         let mut var_libraryId = <String>::sse_decode(deserializer);
         let mut var_capabilities = <Vec<String>>::sse_decode(deserializer);
         let mut var_recovery = <crate::api::RecoverySummary>::sse_decode(deserializer);
+        let mut var_captureCount = <i64>::sse_decode(deserializer);
+        let mut var_lastEventSequence = <i64>::sse_decode(deserializer);
         return crate::api::LibraryInfo {
             api_version: var_apiVersion,
             data_schema_version: var_dataSchemaVersion,
@@ -2768,6 +2770,8 @@ impl SseDecode for crate::api::LibraryInfo {
             library_id: var_libraryId,
             capabilities: var_capabilities,
             recovery: var_recovery,
+            capture_count: var_captureCount,
+            last_event_sequence: var_lastEventSequence,
         };
     }
 }
@@ -4008,6 +4012,8 @@ impl flutter_rust_bridge::IntoDart for crate::api::LibraryInfo {
             self.library_id.into_into_dart().into_dart(),
             self.capabilities.into_into_dart().into_dart(),
             self.recovery.into_into_dart().into_dart(),
+            self.capture_count.into_into_dart().into_dart(),
+            self.last_event_sequence.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -4653,6 +4659,8 @@ impl SseEncode for crate::api::LibraryInfo {
         <String>::sse_encode(self.library_id, serializer);
         <Vec<String>>::sse_encode(self.capabilities, serializer);
         <crate::api::RecoverySummary>::sse_encode(self.recovery, serializer);
+        <i64>::sse_encode(self.capture_count, serializer);
+        <i64>::sse_encode(self.last_event_sequence, serializer);
     }
 }
 
