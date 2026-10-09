@@ -2859,8 +2859,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   IndexStatus dco_decode_index_status(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 16)
-      throw Exception('unexpected arr length: expect 16 but see ${arr.length}');
+    if (arr.length != 18)
+      throw Exception('unexpected arr length: expect 18 but see ${arr.length}');
     return IndexStatus(
       coverage: dco_decode_coverage(arr[0]),
       keywordIndexReady: dco_decode_bool(arr[1]),
@@ -2872,12 +2872,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       totalSegments: dco_decode_i_64(arr[7]),
       pendingSegments: dco_decode_i_64(arr[8]),
       staleSegments: dco_decode_i_64(arr[9]),
-      failedSources: dco_decode_i_64(arr[10]),
-      indexedChars: dco_decode_i_64(arr[11]),
-      indexRows: dco_decode_i_64(arr[12]),
-      indexTerms: dco_decode_i_64(arr[13]),
-      indexBytes: dco_decode_i_64(arr[14]),
-      reasons: dco_decode_list_String(arr[15]),
+      indexedCaptures: dco_decode_i_64(arr[10]),
+      totalCaptures: dco_decode_i_64(arr[11]),
+      failedSources: dco_decode_i_64(arr[12]),
+      indexedChars: dco_decode_i_64(arr[13]),
+      indexRows: dco_decode_i_64(arr[14]),
+      indexTerms: dco_decode_i_64(arr[15]),
+      indexBytes: dco_decode_i_64(arr[16]),
+      reasons: dco_decode_list_String(arr[17]),
     );
   }
 
@@ -3886,6 +3888,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_totalSegments = sse_decode_i_64(deserializer);
     var var_pendingSegments = sse_decode_i_64(deserializer);
     var var_staleSegments = sse_decode_i_64(deserializer);
+    var var_indexedCaptures = sse_decode_i_64(deserializer);
+    var var_totalCaptures = sse_decode_i_64(deserializer);
     var var_failedSources = sse_decode_i_64(deserializer);
     var var_indexedChars = sse_decode_i_64(deserializer);
     var var_indexRows = sse_decode_i_64(deserializer);
@@ -3903,6 +3907,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       totalSegments: var_totalSegments,
       pendingSegments: var_pendingSegments,
       staleSegments: var_staleSegments,
+      indexedCaptures: var_indexedCaptures,
+      totalCaptures: var_totalCaptures,
       failedSources: var_failedSources,
       indexedChars: var_indexedChars,
       indexRows: var_indexRows,
@@ -5154,6 +5160,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_64(self.totalSegments, serializer);
     sse_encode_i_64(self.pendingSegments, serializer);
     sse_encode_i_64(self.staleSegments, serializer);
+    sse_encode_i_64(self.indexedCaptures, serializer);
+    sse_encode_i_64(self.totalCaptures, serializer);
     sse_encode_i_64(self.failedSources, serializer);
     sse_encode_i_64(self.indexedChars, serializer);
     sse_encode_i_64(self.indexRows, serializer);

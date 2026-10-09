@@ -190,6 +190,41 @@ void main() {
       ),
     );
   });
+
+  test('用户自己写的文字也能被搜到（记录文字命中）', () async {
+    // 这段文字只在这条记录里出现：M2 之前索引只有派生片段，它一条都搜不到。
+    final draft = await session.createDraft(
+      timeZone: 'Asia/Shanghai',
+      utcOffsetMinutes: 480,
+      operationId: 'op-capture-text-create',
+    );
+    final saved = await session.saveDraft(
+      captureId: draft.id,
+      text: '今天蒸了一锅馒头，味道不错。',
+      expectedRevision: draft.revision,
+      operationId: 'op-capture-text-save',
+    );
+    expect(saved.durable, isTrue, reason: '保存与索引写在同一个事务里');
+
+    final snapshot = await session.startSearch(
+      request: buildRequest('馒头', 20),
+      queryRevision: 11,
+    );
+    expect(snapshot.results, hasLength(1), reason: '「馒头」只在这条记录的文字里');
+    final hit = snapshot.results.single;
+    expect(hit.sourceKind, SourceKind.text);
+    expect(
+      hit.locator,
+      isNull,
+      reason: '记录文字没有可定位的原件，locator 如实为 null',
+    );
+    expect(hit.hitId, 'cap_${draft.id}');
+    expect(hit.groupId, draft.id);
+    expect(hit.coverage, Coverage.complete);
+    expect(hit.matchedBy, [MatchedBy.keyword]);
+    expect(hit.snippet, contains('馒头'));
+    expect(hit.dayKey, isNotNull);
+  });
 }
 
 String _defaultLibraryPath() {

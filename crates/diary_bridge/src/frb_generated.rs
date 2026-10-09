@@ -2685,6 +2685,8 @@ const _: fn() = || {
         let _: i64 = IndexStatus.total_segments;
         let _: i64 = IndexStatus.pending_segments;
         let _: i64 = IndexStatus.stale_segments;
+        let _: i64 = IndexStatus.indexed_captures;
+        let _: i64 = IndexStatus.total_captures;
         let _: i64 = IndexStatus.failed_sources;
         let _: i64 = IndexStatus.indexed_chars;
         let _: i64 = IndexStatus.index_rows;
@@ -3207,6 +3209,8 @@ impl SseDecode for diary_core::model::IndexStatus {
         let mut var_totalSegments = <i64>::sse_decode(deserializer);
         let mut var_pendingSegments = <i64>::sse_decode(deserializer);
         let mut var_staleSegments = <i64>::sse_decode(deserializer);
+        let mut var_indexedCaptures = <i64>::sse_decode(deserializer);
+        let mut var_totalCaptures = <i64>::sse_decode(deserializer);
         let mut var_failedSources = <i64>::sse_decode(deserializer);
         let mut var_indexedChars = <i64>::sse_decode(deserializer);
         let mut var_indexRows = <i64>::sse_decode(deserializer);
@@ -3224,6 +3228,8 @@ impl SseDecode for diary_core::model::IndexStatus {
             total_segments: var_totalSegments,
             pending_segments: var_pendingSegments,
             stale_segments: var_staleSegments,
+            indexed_captures: var_indexedCaptures,
+            total_captures: var_totalCaptures,
             failed_sources: var_failedSources,
             indexed_chars: var_indexedChars,
             index_rows: var_indexRows,
@@ -4713,6 +4719,8 @@ impl flutter_rust_bridge::IntoDart for FrbWrapper<diary_core::model::IndexStatus
             self.0.total_segments.into_into_dart().into_dart(),
             self.0.pending_segments.into_into_dart().into_dart(),
             self.0.stale_segments.into_into_dart().into_dart(),
+            self.0.indexed_captures.into_into_dart().into_dart(),
+            self.0.total_captures.into_into_dart().into_dart(),
             self.0.failed_sources.into_into_dart().into_dart(),
             self.0.indexed_chars.into_into_dart().into_dart(),
             self.0.index_rows.into_into_dart().into_dart(),
@@ -5629,6 +5637,8 @@ impl SseEncode for diary_core::model::IndexStatus {
         <i64>::sse_encode(self.total_segments, serializer);
         <i64>::sse_encode(self.pending_segments, serializer);
         <i64>::sse_encode(self.stale_segments, serializer);
+        <i64>::sse_encode(self.indexed_captures, serializer);
+        <i64>::sse_encode(self.total_captures, serializer);
         <i64>::sse_encode(self.failed_sources, serializer);
         <i64>::sse_encode(self.indexed_chars, serializer);
         <i64>::sse_encode(self.index_rows, serializer);

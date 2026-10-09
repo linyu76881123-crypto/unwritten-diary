@@ -494,14 +494,14 @@ class ImportTicket {
 ///
 /// 核心只建关键词索引，所以 `semantic_index_ready` 恒为 false、
 /// `model_version` 恒为空——照实说，而不是留一个看起来「都就绪」的默认值。
-/// `pending_segments` 与 `failed_sources` 的单位不同（片段 / 材料），
-/// 名字里写清楚，避免前端把两个数字相加。
+/// 数字的单位不完全一样：片段（`*_segments`）、记录数（`*_captures`）、
+/// 材料数（`failed_sources`）各自的名字里写清楚，避免前端把它们相加。
 class IndexStatus {
   final Coverage coverage;
   final bool keywordIndexReady;
   final bool semanticIndexReady;
 
-  /// 建索引时用的分词器版本；与库里行不一致的片段会被算成待重建。
+  /// 建索引时用的分词器版本；与库里行不一致的片段或记录文字会被算成待重建。
   final String tokenizerVersion;
   final String? modelVersion;
   final String? chunkerVersion;
@@ -518,16 +518,28 @@ class IndexStatus {
   /// 分词器版本过期、需要重建的片段数（已包含在 pending 里）。
   final PlatformInt64 staleSegments;
 
+  /// 已进关键词索引的记录文字条数（`captures.draft_text`）。
+  ///
+  /// 只数当前分词器版本的行，所以「索引行还在、版本过期」不算已索引；
+  /// 进回收站的记录也不算，它们本来就不参与检索。
+  final PlatformInt64 indexedCaptures;
+
+  /// 有文字、未进回收站的记录数（`trim` 后非空才算有文字）。
+  ///
+  /// 它是 `indexed_captures` 的上界：两者不等就说明有用户自己写的话还搜不到，
+  /// `coverage` 因此不会是 `complete`。单位是记录数，不是片段数。
+  final PlatformInt64 totalCaptures;
+
   /// 正文解析失败的材料数（这些材料没有片段可索引）。
   final PlatformInt64 failedSources;
 
-  /// 已索引片段的正文字符总数，用来算索引体积的每字符代价。
+  /// 已索引文档（片段 + 记录文字）的正文字符总数，用来算索引体积的每字符代价。
   final PlatformInt64 indexedChars;
 
-  /// 索引倒排表的行数。
+  /// 索引倒排表的行数（片段与记录文字的词项行都算在内）。
   final PlatformInt64 indexRows;
 
-  /// 索引里不同词项的个数。
+  /// 索引里不同词项的个数（片段与记录文字的并集）。
   final PlatformInt64 indexTerms;
 
   /// **整库**索引表实际占用的字节数（来自 dbstat）。
@@ -551,6 +563,8 @@ class IndexStatus {
     required this.totalSegments,
     required this.pendingSegments,
     required this.staleSegments,
+    required this.indexedCaptures,
+    required this.totalCaptures,
     required this.failedSources,
     required this.indexedChars,
     required this.indexRows,
@@ -571,6 +585,8 @@ class IndexStatus {
       totalSegments.hashCode ^
       pendingSegments.hashCode ^
       staleSegments.hashCode ^
+      indexedCaptures.hashCode ^
+      totalCaptures.hashCode ^
       failedSources.hashCode ^
       indexedChars.hashCode ^
       indexRows.hashCode ^
@@ -593,6 +609,8 @@ class IndexStatus {
           totalSegments == other.totalSegments &&
           pendingSegments == other.pendingSegments &&
           staleSegments == other.staleSegments &&
+          indexedCaptures == other.indexedCaptures &&
+          totalCaptures == other.totalCaptures &&
           failedSources == other.failedSources &&
           indexedChars == other.indexedChars &&
           indexRows == other.indexRows &&
@@ -847,7 +865,8 @@ class SearchFilters {
   final String? toDayKey;
   final List<SourceKind> kinds;
 
-  /// 限定来源范围；空表示不限。
+  /// 限定来源范围。`None` 才是不限；`Some([])` 是「什么都不看」（与 `indexes.status`
+  /// 的空范围同义），不是「看全部」。
   final List<String>? sourceScope;
   final bool includeOldDiaryVersions;
   final bool includeTrashed;

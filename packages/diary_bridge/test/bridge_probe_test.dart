@@ -44,7 +44,7 @@ void main() {
   test('打开资料库能拿到核心信息与能力清单', () async {
     final info = await session.info();
     expect(info.apiVersion, '1.0');
-    expect(info.dataSchemaVersion, 6, reason: '当前 schema 版本');
+    expect(info.dataSchemaVersion, 7, reason: '当前 schema 版本（v6 索引代次、v7 记录文字进索引）');
     expect(info.libraryId, 'library');
     expect(info.capabilities, contains('captures.commit'));
     expect(info.capabilities, contains('imports.finish'));
