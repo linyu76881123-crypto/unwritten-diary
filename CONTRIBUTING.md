@@ -63,11 +63,12 @@
 
 `main` 上现在有两道门禁，PR 必须同时通过：
 
-1. **必过检查 5 项**（都在 `.github/workflows/check.yml`，PR 上必须全绿）：
+1. **必过检查 6 项**（都在 `.github/workflows/check.yml`，PR 上必须全绿）：
    - `docs`：关键文件存在、Markdown 相对链接有效、`.github` 下的 YAML 可解析、共用场景 JSON 合法；
-   - `dart`：`packages/diary_api` 静态分析（`--fatal-infos`）与单元测试；
+   - `dart`：`packages/diary_api` 静态分析（`--fatal-infos`）与单元测试；纯 Dart 的 `packages/diary_mock` 也在这里跑（它随 F0 一起进来）；
    - `rust`：`clippy --workspace --all-targets -- -D warnings` 与全 workspace 测试；
    - `bridge`：构建桥接产物、`packages/diary_bridge` 静态分析与端到端调用测试；
+   - `flutter`：`apps/diary_app` 的静态分析（`--fatal-infos`）与组件测试；
    - `probe`：插件运行时预算与权限、插件代码的 Android arm64 编译检查、中文短词检索的结论断言。
 2. **必过审查 1 人**：GitHub 不允许作者批准自己的 PR，所以"必须 1 人批准"天然等于"必须对方批准"。已开启 `dismiss_stale_reviews`（批准后又推新提交，批准作废需重审）和 `required_conversation_resolution`（未解决的评论必须先处理才能合）。
 
