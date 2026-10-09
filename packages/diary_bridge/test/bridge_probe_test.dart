@@ -154,6 +154,8 @@ void main() {
     // limit 夹到 200，所以第 201 个待办任务开始就少报。这里用真实路径堆出
     // 205 个排队中的 extract 任务（每次导入完成时核心排一个），再读恢复摘要。
     const total = 205;
+    // 同一个会话被整个文件共享，前面的用例可能已经排过任务，所以按基线增量断言。
+    final baseline = (await session.info()).recovery.pendingJobs;
     final draft = await session.createDraft(
       timeZone: 'Asia/Shanghai',
       utcOffsetMinutes: 480,
@@ -185,8 +187,13 @@ void main() {
     final info = await session.info();
     expect(
       info.recovery.pendingJobs,
-      total,
+      baseline + total,
       reason: '计数必须精确：分页列表的上限是 200，不能拿它的长度当计数',
+    );
+    expect(
+      info.recovery.pendingJobs,
+      greaterThan(200),
+      reason: '这条用例的意义就在于超过分页上限之后仍然精确',
     );
     // 分页接口本身仍然守自己的上限，两者不冲突。
     final page = await session.listJobs(
