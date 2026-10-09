@@ -1,0 +1,145 @@
+import 'dart:io';
+
+import 'package:diary_api/diary_api.dart';
+// 两个包有同名枚举（CaptureState / AuthorType 等），这里只要适配层的类。
+import 'package:diary_bridge/diary_bridge.dart' show BridgeDiaryApi;
+import 'package:test/test.dart';
+
+/// 适配层的端到端测试：**只经契约接口**（`DiaryApi`）走真核心 + 真 SQLite。
+///
+/// 这条路径就是前端 `CaptureController` 用的那条：`open` → `createDraft` →
+/// `saveDraft` → `commit` → `getCapture` → `listCaptures`。测试不碰任何桥接类型，
+/// 所以一旦适配层漏映射或映射错字段，这里就会红。
+///
+/// 运行前先构建宿主产物：
+///   cargo build --release            （仓库根目录）
+///   dart test                        （本包目录）
+void main() {
+  late Directory workDir;
+  late BridgeDiaryApi api;
+
+  setUpAll(() {
+    final path = File(
+      Platform.environment['DIARY_BRIDGE_LIB'] ?? _defaultLibraryPath(),
+    ).absolute.path;
+    expect(
+      File(path).existsSync(),
+      isTrue,
+      reason: '找不到桥接产物：$path。先在仓库根目录跑 cargo build --release',
+    );
+
+    workDir = Directory.systemTemp.createTempSync('diary_adapter_test');
+    api = BridgeDiaryApi(
+      coreLibraryPath: path,
+      libraryPath: '${workDir.path}/library.sqlite',
+      timeZone: 'Asia/Shanghai',
+      utcOffsetMinutes: 480,
+    );
+  });
+
+  tearDownAll(() async {
+    // 先关会话再删目录：Windows 上文件被打开着是删不掉的。
+    await api.close();
+    try {
+      workDir.deleteSync(recursive: true);
+    } on FileSystemException {
+      // 删除失败不该让测试失败；临时目录留给系统清理。
+    }
+  });
+
+  test('经契约接口完成一条记录（真核心 + 真 SQLite）', () async {
+    final opened = await api.open();
+    expect(opened.coreInfo.apiVersion, '1.0');
+    expect(opened.coreInfo.dataSchemaVersion, 5);
+    expect(opened.coreInfo.capabilities, contains('captures.commit'));
+    expect(opened.captureCount, 0);
+    expect(
+      opened.recovery.notes,
+      isEmpty,
+      reason: '空库里没有需要恢复的东西',
+    );
+
+    final draft = await api.createDraft(operationId: 'adapter-create');
+    expect(draft.state, CaptureState.draft);
+    // 核心的初始 revision 是 1（契约只说它是「乐观锁版本」，没规定起点）。
+    // 顺带一提：`diary_mock` 从 0 开始，两者不一致——见 issue 里的记录。
+    expect(draft.revision, 1);
+    expect(draft.dayKey, isNotEmpty);
+    expect(draft.utcOffsetMinutes, 480);
+
+    final saved = await api.saveDraft(
+      id: draft.id,
+      text: '适配层写进来的第一句。',
+      expectedRevision: draft.revision,
+      operationId: 'adapter-save',
+    );
+    expect(saved.durable, isTrue);
+    expect(saved.revision, draft.revision + 1);
+
+    final committed = await api.commit(
+      id: draft.id,
+      expectedRevision: saved.revision,
+      operationId: 'adapter-commit',
+    );
+    expect(committed.capture.state, CaptureState.committed);
+    expect(committed.capture.draftText, '适配层写进来的第一句。');
+    // 原始文字版本也要翻过来：桥接侧的 AuthorType.import_ 要映射成契约的 import。
+    expect(committed.originalTextRevision, isNotNull);
+    expect(committed.originalTextRevision!.authorType, AuthorType.user);
+    expect(committed.originalTextRevision!.text, '适配层写进来的第一句。');
+
+    final again = await api.getCapture(draft.id);
+    expect(again.revision, committed.capture.revision);
+    expect(again.state, CaptureState.committed);
+
+    final page = await api.listCaptures(pageSize: 10);
+    expect(page.captures.map((capture) => capture.id), contains(draft.id));
+
+    // 快照里的三个数字要真的从库里读出来，而不是默认值。
+    final after = await api.snapshot();
+    expect(after.captureCount, 1, reason: '记录数必须真的数出来');
+    expect(after.lastEventSequence, greaterThan(0), reason: '提交会产生事件');
+    expect(after.pendingJobCount, greaterThanOrEqualTo(0));
+  });
+
+  test('错误码翻成契约枚举，不会变成 unknown', () async {
+    await expectLater(
+      api.getCapture('cap_不存在'),
+      throwsA(
+        isA<DiaryException>()
+            .having((error) => error.code, 'code', DiaryErrorCode.notFound)
+            .having((error) => error.retryable, 'retryable', false),
+      ),
+    );
+  });
+
+  test('没接的方法明确报错，且不在能力清单里', () async {
+    final snapshot = await api.snapshot();
+    expect(snapshot.coreInfo.capabilities, contains('captures.list'));
+    // 桥接侧核心是接了 search 的（能力清单里没有，但将来会有），适配层没接，
+    // 所以这里必须是「没有」——能力清单要反映适配层的真实能力。
+    expect(snapshot.coreInfo.capabilities, isNot(contains('search.start')));
+    expect(snapshot.coreInfo.capabilities, isNot(contains('indexes.status')));
+
+    expect(
+      () => api.startSearch(
+        request: const SearchRequest(query: '测试'),
+        queryRevision: 1,
+      ),
+      throwsUnsupportedError,
+    );
+  });
+}
+
+String _defaultLibraryPath() {
+  if (Platform.isLinux) {
+    return '../../target/release/libdiary_bridge.so';
+  }
+  if (Platform.isWindows) {
+    return r'..\..\target\x86_64-pc-windows-msvc\release\diary_bridge.dll';
+  }
+  if (Platform.isMacOS) {
+    return '../../target/release/libdiary_bridge.dylib';
+  }
+  throw UnsupportedError('未知平台：${Platform.operatingSystem}');
+}

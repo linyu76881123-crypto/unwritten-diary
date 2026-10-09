@@ -11,11 +11,13 @@ Dart 侧访问 Rust 核心的唯一入口，含 [flutter_rust_bridge](https://cj
 | `lib/diary_bridge.dart` | 公开入口（barrel），上层只 import 这一个文件 |
 | `lib/src/rust/` | 生成文件（`api.dart`、`lib.dart`、`frb_generated*.dart`），**禁止手改** |
 | `lib/src/rust/third_party/diary_core/model.dart` | 核心数据结构的 Dart 镜像，同样由 codegen 生成 |
+| `lib/src/bridge_diary_api.dart` | 契约 `DiaryApi` 的适配层（只覆盖记录路径） |
 | `test/bridge_probe_test.dart` | 端到端测试：Dart 真正调用到 Rust cdylib 并读写资料库 |
+| `test/bridge_diary_api_test.dart` | 端到端测试：**只经 `DiaryApi`** 跑真核心（前端真正用的那条路径） |
 
 对应 Rust 侧在 `crates/diary_bridge/`，生成入口是仓库根目录的 `flutter_rust_bridge.yaml`。
 
-**这个包目前不实现 `diary_api` 的 `DiaryApi`**：它暴露的是 `BridgeSession` 与 frb 生成的另一套同名类型，两者之间还需要一层适配（见 [issue #38](https://github.com/xingxue-ux/unwritten-diary/issues/38)）。前端现在接的是 `packages/diary_mock`。
+**`diary_api` 适配层只覆盖记录路径**：`lib/src/bridge_diary_api.dart` 里的 `BridgeDiaryApi` 把 `BridgeSession` 适配成契约的 `DiaryApi`（`open`/`snapshot`/`close`/`createDraft`/`saveDraft`/`commit`/`getCapture`/`listCaptures`），其余方法明确抛错且不出现在 `capabilities` 里。前端目前仍注入 `packages/diary_mock`——切到真核心还需要平台层给出库路径与时区（F1）。设计与取舍见 [M1 · DiaryApi 适配层](../../docs/architecture/m1-DiaryApi适配层.md)。
 
 ## 重新生成绑定
 

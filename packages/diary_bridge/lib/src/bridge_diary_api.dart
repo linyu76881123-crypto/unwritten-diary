@@ -1,0 +1,286 @@
+// 这个文件用前缀区分两个包：两边有一批**同名不同类型**的对象
+// （Capture、CaptureState、DraftSaveResult…），不加前缀很容易把桥接的类型
+// 递给契约的构造函数，而那种错误恰恰是编译器能拦住的。
+import 'dart:async';
+
+import 'package:diary_api/diary_api.dart' as api;
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+
+import '../diary_bridge.dart' as bridge;
+
+/// 把桥接的 `BridgeSession` 适配成契约的 [api.DiaryApi]。
+///
+/// **只覆盖记录路径**：`open` / `snapshot` / `close` / `createDraft` /
+/// `saveDraft` / `commit` / `getCapture` / `listCaptures`。其余契约方法一律抛
+/// [UnsupportedError]（和 `diary_mock` 的做法一致），并且**不出现在
+/// [api.CoreInfo.capabilities] 里**——能力清单是窄化过的，界面据此决定显示哪些入口。
+///
+/// 设计取舍：
+/// - **不另造 DTO**：桥接的字段名已经和契约对得上，这里只做映射与改名，
+///   不做语义转换；
+/// - **错误翻译**：桥接抛 `BridgeError`（字符串码），这里翻成
+///   [api.DiaryException]（枚举码），未知码落到 `unknown` 而不是崩掉；
+/// - **能力窄化**：核心报的是「桥接接了多少」，这里只报「适配层能真的用的」，
+///   两者取交集。
+class BridgeDiaryApi implements api.DiaryApi {
+  BridgeDiaryApi({
+    required this.coreLibraryPath,
+    required this.libraryPath,
+    required this.timeZone,
+    required this.utcOffsetMinutes,
+  });
+
+  /// 桥接产物（Windows 的 `.dll`、Android 的 `.so`）路径，用来初始化 frb。
+  final String coreLibraryPath;
+
+  /// 资料库文件路径。契约里这是平台层的活（`libraryHandle` 就是不透明句柄），
+  /// 平台层（F1）到位之前由调用方直接注入。
+  final String libraryPath;
+
+  /// 契约把时区与偏移放在平台层，而核心的 `createDraft` 需要它们。
+  final String timeZone;
+  final int utcOffsetMinutes;
+
+  /// frb 的初始化在一个进程里只能做一次。
+  static Future<void>? _rustLibReady;
+
+  bridge.BridgeSession? _session;
+
+  /// 适配层真正接上的契约方法。核心报的能力清单是它的上限，这里是实际能力。
+  static const Set<String> _wiredMethods = {
+    'core.open',
+    'core.snapshot',
+    'captures.createDraft',
+    'captures.saveDraft',
+    'captures.commit',
+    'captures.get',
+    'captures.list',
+  };
+
+  /// 幂等地初始化 frb 运行时。
+  static Future<void> ensureRuntime(String coreLibraryPath) {
+    return _rustLibReady ??= bridge.RustLib.init(
+      externalLibrary: ExternalLibrary.open(coreLibraryPath),
+    );
+  }
+
+  bridge.BridgeSession get _open {
+    final session = _session;
+    if (session == null) {
+      throw const api.DiaryException(
+        code: api.DiaryErrorCode.invalidState,
+        message: '资料库还没有打开，请先调用 open()。',
+      );
+    }
+    return session;
+  }
+
+  @override
+  Future<api.CoreSnapshot> open({String? libraryHandle}) async {
+    _session?.dispose();
+    await ensureRuntime(coreLibraryPath);
+    final session = await bridge.BridgeSession.open(
+      libraryPath: libraryHandle ?? libraryPath,
+    );
+    _session = session;
+    return await _snapshot(session);
+  }
+
+  @override
+  Future<api.CoreSnapshot> snapshot({Set<String>? scopes}) async =>
+      _snapshot(_open);
+
+  @override
+  Future<void> close() async {
+    _session?.dispose();
+    _session = null;
+  }
+
+  @override
+  Future<api.Capture> createDraft({
+    DateTime? occurredAt,
+    required String operationId,
+  }) async {
+    final session = _open;
+    final capture = await _translate(
+      () => session.createDraft(
+        occurredAt: occurredAt,
+        timeZone: timeZone,
+        utcOffsetMinutes: utcOffsetMinutes,
+        operationId: operationId,
+      ),
+    );
+    return _capture(capture);
+  }
+
+  @override
+  Future<api.DraftSaveResult> saveDraft({
+    required String id,
+    required String text,
+    required int expectedRevision,
+    required String operationId,
+  }) async {
+    final session = _open;
+    final result = await _translate(
+      () => session.saveDraft(
+        captureId: id,
+        text: text,
+        expectedRevision: expectedRevision,
+        operationId: operationId,
+      ),
+    );
+    return api.DraftSaveResult(
+      revision: result.revision.toInt(),
+      durable: result.durable,
+      savedAt: result.savedAt,
+    );
+  }
+
+  @override
+  Future<api.CommitResult> commit({
+    required String id,
+    required int expectedRevision,
+    required String operationId,
+  }) async {
+    final session = _open;
+    final result = await _translate(
+      () => session.commit(
+        captureId: id,
+        expectedRevision: expectedRevision,
+        operationId: operationId,
+      ),
+    );
+    final revision = result.originalTextRevision;
+    return api.CommitResult(
+      capture: _capture(result.capture),
+      originalTextRevision: revision == null ? null : _sourceRevision(revision),
+    );
+  }
+
+  @override
+  Future<api.Capture> getCapture(String id) async {
+    final session = _open;
+    final capture = await _translate(() => session.getCapture(captureId: id));
+    return _capture(capture);
+  }
+
+  @override
+  Future<api.CapturePage> listCaptures({
+    String? dayKey,
+    String? cursor,
+    int pageSize = 20,
+  }) async {
+    final session = _open;
+    final page = await _translate(
+      () => session.listCaptures(
+        dayKey: dayKey,
+        cursor: cursor,
+        limit: pageSize,
+      ),
+    );
+    return api.CapturePage(
+      captures: page.captures.map(_capture).toList(growable: false),
+      nextCursor: page.nextCursor,
+    );
+  }
+
+  /// 没接的方法一律明确报错——照 `diary_mock` 的做法，避免悄悄返回空数据。
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnsupportedError(
+    '${invocation.memberName} 还没有接到适配层（当前只有记录路径）。'
+    '对应的契约方法也 deliberately 不出现在 capabilities 里。',
+  );
+
+  // ------------------------------------------------------------ 映射
+
+  /// 统一把桥接的错误翻成契约的异常。**未知错误码落到 `unknown`**，
+  /// 不能让它变成一个没人认识的枚举值或者直接崩。
+  Future<T> _translate<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } on bridge.BridgeError catch (error) {
+      throw api.DiaryException(
+        code: _errorCode(error.code),
+        message: error.message,
+        retryable: error.retryable,
+      );
+    }
+  }
+
+  static api.DiaryErrorCode _errorCode(String wire) {
+    try {
+      return api.DiaryErrorCode.fromWire(wire);
+    } on Object {
+      return api.DiaryErrorCode.unknown;
+    }
+  }
+
+  Future<api.CoreSnapshot> _snapshot(bridge.BridgeSession session) async {
+    final info = await _translate(() => session.info());
+    return api.CoreSnapshot(
+      coreInfo: api.CoreInfo(
+        apiVersion: info.apiVersion,
+        dataSchemaVersion: info.dataSchemaVersion.toInt(),
+        buildVersion: info.buildVersion,
+        libraryId: info.libraryId,
+        // 窄化：核心报的是「桥接接了多少」，这里只报适配层真的能用的。
+        capabilities: info.capabilities
+            .where(_wiredMethods.contains)
+            .toSet(),
+      ),
+      recovery: api.RecoverySummary(
+        // 核心不区分「恢复的草稿」：草稿本来就持久存在（B1a），重启后仍是草稿，
+        // 没有一个单独标记成「已恢复」的状态。所以这里恒为 0，而不是「读不到」。
+        recoveredDraftCount: 0,
+        orphanedImportCount: info.recovery.recoverableImports,
+        unrecoveredRecordingCount: info.recovery.openRecordings,
+        notes: info.recovery.notes,
+      ),
+      pendingJobCount: info.recovery.pendingJobs,
+      lastEventSequence: info.lastEventSequence.toInt(),
+      captureCount: info.captureCount.toInt(),
+    );
+  }
+
+  api.Capture _capture(bridge.Capture value) => api.Capture(
+    id: value.id,
+    revision: value.revision.toInt(),
+    state: _captureState(value.state),
+    occurredAt: value.occurredAt,
+    createdAt: value.createdAt,
+    updatedAt: value.updatedAt,
+    timeZone: value.timeZone,
+    utcOffsetMinutes: value.utcOffsetMinutes,
+    dayKey: value.dayKey,
+    orderedSourceIds: value.orderedSourceIds,
+    draftText: value.draftText,
+    processingSummary: api.ProcessingSummary(
+      unprocessed: value.processingSummary.unprocessed,
+      processing: value.processingSummary.processing,
+      searchable: value.processingSummary.searchable,
+      needsAttention: value.processingSummary.needsAttention,
+    ),
+  );
+
+  static api.CaptureState _captureState(bridge.CaptureState value) =>
+      switch (value) {
+        bridge.CaptureState.draft => api.CaptureState.draft,
+        bridge.CaptureState.committed => api.CaptureState.committed,
+        bridge.CaptureState.trashed => api.CaptureState.trashed,
+      };
+
+  api.SourceRevision _sourceRevision(bridge.SourceRevision value) =>
+      api.SourceRevision(
+        revisionId: value.revisionId,
+        sourceId: value.sourceId,
+        parentRevisionId: value.parentRevisionId,
+        text: value.text,
+        assetId: value.assetId,
+        authorType: switch (value.authorType) {
+          bridge.AuthorType.user => api.AuthorType.user,
+          bridge.AuthorType.import_ => api.AuthorType.import,
+        },
+        occurredAt: value.occurredAt,
+        // 桥接侧目前不提供 provenance（契约里它是可空字段），如实留空。
+      );
+}
