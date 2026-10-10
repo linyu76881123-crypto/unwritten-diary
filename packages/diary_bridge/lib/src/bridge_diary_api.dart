@@ -77,10 +77,23 @@ class BridgeDiaryApi implements api.DiaryApi {
 
   @override
   Future<api.CoreSnapshot> open({String? libraryHandle}) async {
+    // 先断开旧会话并**立刻清空引用**：开库可能失败（路径不存在、没有权限、
+    // 核心拒绝打开），那时若 `_session` 还指向已经释放的句柄，后面每个方法都会
+    // 拿着一个死句柄去用，报出来的错也跟真正的原因无关。
     _session?.dispose();
+    _session = null;
+
+    // 加载桥接产物失败是**部署错误**（.so/.dll 不在或架构不对），不是资料库错误，
+    // 所以故意让它原样抛：换成 DiaryException 会把它伪装成「资料库有问题」。
     await ensureRuntime(coreLibraryPath);
-    final session = await bridge.BridgeSession.open(
-      libraryPath: libraryHandle ?? libraryPath,
+
+    // 开库失败要按契约抛 DiaryException，不能把 BridgeError 泄漏给只依赖
+    // DiaryApi 的调用方——其他记录方法都翻过了，这里漏一个就会出现「同一个
+    // 失败，取决于发生在哪一步，异常类型不同」。
+    final session = await _translate(
+      () => bridge.BridgeSession.open(
+        libraryPath: libraryHandle ?? libraryPath,
+      ),
     );
     _session = session;
     return await _snapshot(session);

@@ -102,6 +102,39 @@ void main() {
     expect(after.pendingJobCount, greaterThanOrEqualTo(0));
   });
 
+  test('开库失败抛契约异常，且不留下已释放的会话', () async {
+    // 回归：审查发现 `open()` 没走 `_translate`，会把原始 BridgeError 泄漏给
+    // 只依赖 DiaryApi 的调用方；而且它 dispose 旧会话后没有清空引用，开库失败
+    // 时后续方法会拿到一个死句柄。
+    final broken = BridgeDiaryApi(
+      coreLibraryPath: File(
+        Platform.environment['DIARY_BRIDGE_LIB'] ?? _defaultLibraryPath(),
+      ).absolute.path,
+      // 目录不存在，SQLite 建不了库文件。
+      libraryPath: '${workDir.path}/不存在的目录/library.sqlite',
+      timeZone: 'Asia/Shanghai',
+      utcOffsetMinutes: 480,
+    );
+
+    await expectLater(
+      broken.open(),
+      throwsA(
+        isA<DiaryException>(),
+        // 明确不是桥接的原始异常类型（isA<DiaryException> 已经蕴含，写出来是为了
+        // 让「回归的是什么」在测试里看得见）。
+      ),
+    );
+
+    // 失败之后这个适配器必须处于「没打开」的状态，而不是拿着死句柄。
+    await expectLater(
+      broken.createDraft(operationId: 'op-after-failed-open'),
+      throwsA(
+        isA<DiaryException>()
+            .having((error) => error.code, 'code', DiaryErrorCode.invalidState),
+      ),
+    );
+  });
+
   test('错误码翻成契约枚举，不会变成 unknown', () async {
     await expectLater(
       api.getCapture('cap_不存在'),
