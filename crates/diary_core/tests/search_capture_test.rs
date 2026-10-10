@@ -725,3 +725,49 @@ fn index_terms_counts_shared_terms_once() {
         "index_terms 必须是两路词项的并集（并集 {union}，分别计数相加 {two_path_sum}）"
     );
 }
+
+/// 带范围的状态查询必须能穿过「两路词项取并集」那条 SQL。
+///
+/// 回归：数词项的 UNION 子查询里**有两处范围过滤**，绑定的参数份数必须跟着
+/// SQL 里的占位符个数走。写死成一份时，范围查询会报
+/// `InvalidParameterCount(1, 2)`——全库查询（`index_status(None)`）看不出来，
+/// 只有带 `sourceScope` 调用才会触发，而且是 SQLite 层的报错，不测就发现不了。
+#[test]
+fn scoped_status_survives_the_union_query() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("library.sqlite");
+    let mut core = Core::open(&path).unwrap();
+
+    // 一条记录：自己写的文字 + 导入材料，两路都有内容。
+    let capture_id = write_capture(&mut core, at(2026, 9, 20), "妈妈打电话来。", "op1");
+    let source_id = import_and_extract(
+        &mut core,
+        &capture_id,
+        "材料.txt",
+        "妈妈后来又写了一封信。\n",
+        "op-mat",
+    );
+
+    let scoped = core
+        .index_status(Some(std::slice::from_ref(&source_id)))
+        .unwrap();
+    assert_eq!(scoped.total_segments, 1);
+    assert_eq!(scoped.indexed_segments, 1);
+    assert_eq!(
+        scoped.total_captures, 1,
+        "拥有该来源的记录，它的文字要算进这个范围"
+    );
+    assert_eq!(scoped.indexed_captures, 1);
+    assert_eq!(scoped.coverage, Coverage::Complete);
+    assert!(scoped.index_terms > 0, "并集查询要有结果");
+    assert!(scoped.index_rows > 0);
+
+    // 空范围仍然是「什么都不看」；这条路径上一条范围过滤都没有（占位符为 0），
+    // 绑定也不能出错。
+    let empty: [String; 0] = [];
+    let none = core.index_status(Some(&empty)).unwrap();
+    assert_eq!(none.total_segments, 0);
+    assert_eq!(none.total_captures, 0);
+    assert_eq!(none.index_rows, 0);
+    assert_eq!(none.index_terms, 0);
+}

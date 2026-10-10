@@ -334,12 +334,22 @@ pub(crate) fn status(core: &Core, source_scope: Option<&[String]>) -> Result<Ind
         None => String::new(),
     };
 
+    // 绑定的范围参数份数**跟着 SQL 里的占位符个数走**：一条子查询可能带一个范围
+    // 过滤，也可能像下面数词项的 UNION 那样带两个（两路各自过滤一次）。写死成
+    // 「只绑一份」时，范围查询会报 InvalidParameterCount(1, 2)——只有带 sourceScope
+    // 调用才会触发，全库查询看不出来。这一片就踩到过，测试是
+    // `scope_filters_status_and_empty_scope_means_nothing`。
     let count = |sql: &str| -> Result<i64> {
+        let placeholders = sql.matches('?').count();
+        let mut values: Vec<&String> = Vec::with_capacity(placeholders);
+        if !scope_values.is_empty() {
+            while values.len() < placeholders {
+                values.extend(scope_values.iter());
+            }
+        }
         Ok(core
             .conn
-            .query_row(sql, rusqlite::params_from_iter(scope_values.iter()), |row| {
-                row.get(0)
-            })?)
+            .query_row(sql, rusqlite::params_from_iter(values), |row| row.get(0))?)
     };
 
     let total_segments = count(&format!(
