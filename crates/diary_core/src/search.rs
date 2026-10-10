@@ -92,6 +92,7 @@ pub(crate) struct SegmentInput<'a> {
 ///
 /// 可重入：同一个 `segment_id` 先清后写，不会留旧词项。
 pub(crate) fn index_segment(tx: &Transaction<'_>, segment: SegmentInput<'_>) -> Result<()> {
+    bump_index_epoch(tx)?;
     tx.execute(
         "DELETE FROM search_docs WHERE segment_id = ?1",
         params![segment.segment_id],
@@ -152,6 +153,26 @@ pub(crate) fn index_content(core: &mut Core, content_id: &str) -> Result<i64> {
     }
     tx.commit()?;
     Ok(indexed)
+}
+
+/// 把索引代次 +1。每次索引写入都要在自己的事务里调一次。
+///
+/// 会话拿它当快照指纹：只要有人写过索引，进行中的会话就会在下次翻页时报
+/// `search_expired`。**不要**换成「数行数 + 求和 doc_id」那类做法——删了再插
+/// 时 SQLite 会复用 rowid，那种指纹在「重建同一个片段」时完全不变（见 v6 迁移
+/// 的说明）。
+pub(crate) fn bump_index_epoch(tx: &Transaction<'_>) -> Result<()> {
+    tx.execute("UPDATE search_index_epoch SET epoch = epoch + 1 WHERE id = 1", [])?;
+    Ok(())
+}
+
+/// 当前索引代次。会话开始时记下来，翻页时比对。
+pub(crate) fn index_epoch(core: &Core) -> Result<i64> {
+    Ok(core
+        .conn
+        .query_row("SELECT epoch FROM search_index_epoch WHERE id = 1", [], |row| {
+            row.get(0)
+        })?)
 }
 
 /// 重建关键词索引。`source_scope` 为空表示整个资料库。

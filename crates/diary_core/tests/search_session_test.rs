@@ -29,7 +29,6 @@ fn add_material(
     occurred: chrono::DateTime<Utc>,
     operation: &str,
 ) -> String {
-    let bytes = text.as_bytes();
     let capture_id = core
         .create_draft(CreateDraftInput {
             occurred_at: Some(occurred),
@@ -39,14 +38,28 @@ fn add_material(
         })
         .unwrap()
         .id;
+    add_material_to(core, &capture_id, name, text, operation, "op-mat")
+}
+
+/// 往一条**已有**记录里导入文本并提取。
+fn add_material_to(
+    core: &mut Core,
+    capture_id: &str,
+    name: &str,
+    text: &str,
+    operation: &str,
+    suffix: &str,
+) -> String {
+    let bytes = text.as_bytes();
     let ticket = core
         .prepare_import(ImportRequest {
-            capture_id: &capture_id,
+            capture_id,
             display_name: name,
             mime_hint: Some("text/plain"),
             size_hint: Some(bytes.len() as i64),
             origin: ImportOrigin::Picker,
-            operation_id: &format!("{operation}-prepare"),
+            // operationId 要唯一：同一个 operation 前缀下可能导入多份材料。
+            operation_id: &format!("{operation}-prepare-{suffix}"),
         })
         .unwrap();
     std::fs::write(&ticket.staging_ticket, bytes).unwrap();
@@ -62,7 +75,7 @@ fn add_material(
     )
     .unwrap();
     let source_id = core
-        .get_capture(&capture_id)
+        .get_capture(capture_id)
         .unwrap()
         .ordered_source_ids
         .first()
@@ -379,6 +392,132 @@ fn snippet_and_highlights_point_at_the_match() {
     assert_eq!(hit.title.as_deref(), Some("长文.txt"));
     assert!(hit.locator.is_some());
     assert_eq!(hit.source_kind, SourceKind::File);
+}
+
+#[test]
+fn rebuilding_the_same_segment_invalidates_the_snapshot() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("library.sqlite");
+    let mut core = Core::open(&path).unwrap();
+    add_material(
+        &mut core,
+        "材料.txt",
+        "妈妈打电话来了。\n",
+        Utc.with_ymd_and_hms(2026, 9, 20, 4, 0, 0).unwrap(),
+        "op1",
+    );
+
+    let session = core.start_search(request("妈妈", 10), 1).unwrap();
+    assert_eq!(session.results.len(), 1);
+
+    // 直接用第二个连接改掉派生正文（提取器换版本时就是这个效果），并记下重建前的
+    // 文档行——改完要确认「片段数与 doc_id 集合都没变」，否则这条测试测的就不是
+    // 审查指出的那个机制了。
+    let (docs_before, ids_before) = {
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        // 提取器会把正文规整过（去掉行尾换行等），所以按内容匹配不可靠：
+        // 取这一条片段并断言拿对了，再改它。
+        let (segment_id, old_text): (String, String) = conn
+            .query_row("SELECT id, text FROM extracted_segments LIMIT 1", [], |row| {
+                Ok((row.get(0)?, row.get(1)?))
+            })
+            .expect("先确认片段真的在库里");
+        assert!(
+            old_text.contains("打电话"),
+            "先确认拿到的是那条片段，实际内容：{old_text:?}"
+        );
+        conn.execute(
+            "UPDATE extracted_segments SET text = ?1 WHERE id = ?2",
+            rusqlite::params!["妈妈没有再回来。\n", segment_id],
+        )
+        .unwrap();
+        snapshot_docs(&conn)
+    };
+
+    // 同一个 Core、同一个会话：走公开的重建入口，重新索引同一个片段。
+    core.rebuild_keyword_index(None).unwrap();
+
+    let (docs_after, ids_after) = snapshot_docs(&rusqlite::Connection::open(&path).unwrap());
+    assert_eq!(docs_after, docs_before, "前提：片段数没变");
+    assert_eq!(
+        ids_after, ids_before,
+        "前提：SQLite 复用了同一个 doc_id——不然这条测试测的不是审查指出的机制"
+    );
+
+    // 内容真的换了：旧词不再命中，新词命中。
+    assert!(
+        core.start_search(request("打电话", 10), 2)
+            .unwrap()
+            .results
+            .is_empty(),
+        "旧词不该再命中"
+    );
+    assert_eq!(
+        core.start_search(request("回来", 10), 3)
+            .unwrap()
+            .results
+            .len(),
+        1,
+        "新词应当命中"
+    );
+
+    // 而进行中的旧会话必须发现快照已经失效，不能把新正文套进旧结果。
+    let error = core
+        .search_next_page(&session.session_id, session.cursor.as_deref())
+        .unwrap_err();
+    assert_eq!(
+        error.code(),
+        ErrorCode::SearchExpired,
+        "重建同一个片段（行数与 doc_id 都没变）也必须让快照失效"
+    );
+}
+
+/// 索引文档的行数，以及 doc_id 的集合。
+fn snapshot_docs(conn: &rusqlite::Connection) -> (i64, Vec<i64>) {
+    let count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM search_docs", [], |row| row.get(0))
+        .unwrap();
+    let ids: Vec<i64> = conn
+        .prepare("SELECT doc_id FROM search_docs ORDER BY doc_id")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .unwrap();
+    (count, ids)
+}
+
+#[test]
+fn next_page_after_the_last_page_returns_an_empty_page() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut core = new_core(dir.path());
+    add_material(
+        &mut core,
+        "日记.txt",
+        &ten_paragraphs(),
+        Utc.with_ymd_and_hms(2026, 9, 20, 4, 0, 0).unwrap(),
+        "op1",
+    );
+
+    // 一次翻到末页。
+    let first = core.start_search(request("妈妈", 20), 1).unwrap();
+    assert_eq!(first.phase, SearchPhase::Done);
+    assert!(first.cursor.is_none());
+    assert_eq!(first.results.len(), 10);
+
+    // 末页之后再翻：必须是空页，不能从第 0 条重来（那会把第一页当成新一页）。
+    let again = core.search_next_page(&first.session_id, None).unwrap();
+    assert!(
+        again.results.is_empty(),
+        "末页之后再翻不该返回任何命中（返回了 {} 条）",
+        again.results.len()
+    );
+    assert_eq!(again.phase, SearchPhase::Done);
+    assert!(again.cursor.is_none());
+
+    // 而且不该把会话里「当前这一页」改掉：快照仍然给得回最后一页。
+    let snapshot = core.search_snapshot(&first.session_id).unwrap();
+    assert_eq!(snapshot.results.len(), 10, "快照不该被空翻页污染");
 }
 
 #[test]

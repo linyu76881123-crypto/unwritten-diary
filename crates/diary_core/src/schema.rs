@@ -7,7 +7,7 @@
 use rusqlite::{params, Connection};
 
 /// 本构建支持的 schema 版本。
-pub const SCHEMA_VERSION: i64 = 5;
+pub const SCHEMA_VERSION: i64 = 6;
 
 /// 迁移到最新版本。已经是最新则什么都不做。
 pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
@@ -38,6 +38,9 @@ pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
     }
     if current < 5 {
         tx.execute_batch(V5)?;
+    }
+    if current < 6 {
+        tx.execute_batch(V6)?;
     }
     tx.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
     tx.execute(
@@ -306,4 +309,24 @@ CREATE TABLE search_grams (
     doc_id INTEGER NOT NULL REFERENCES search_docs(doc_id) ON DELETE CASCADE,
     PRIMARY KEY (term, doc_id)
 ) WITHOUT ROWID;
+"#;
+
+/// v6：索引代次。
+///
+/// 检索会话要能判断「这次查询的快照还有效吗」。原先是拿 `search_docs` 的
+/// 行数与 `doc_id` 之和当指纹，但 `index_segment` 是「先删后插」，而 `doc_id`
+/// 是不带 `AUTOINCREMENT` 的 `INTEGER PRIMARY KEY`——SQLite 会把删掉的最大
+/// rowid 再分配给下一条插入。于是**重建同一个片段时这两个值可以都不变**，
+/// 哪怕正文与词项已经换了，旧会话也不会报 `search_expired`，会把新正文套进
+/// 旧查询结果（审查发现的就是这一条）。
+///
+/// 所以改成显式的代次：任何一次索引写入都在同一个事务里把它 +1。它单调递增，
+/// 与行数、id 分配策略、内容是否恰好相同都无关。
+const V6: &str = r#"
+CREATE TABLE search_index_epoch (
+    id    INTEGER PRIMARY KEY CHECK (id = 1),
+    epoch INTEGER NOT NULL
+);
+
+INSERT INTO search_index_epoch (id, epoch) VALUES (1, 0);
 "#;

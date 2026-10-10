@@ -29,12 +29,14 @@ const MAX_PAGE_SIZE: i64 = 100;
 /// 摘录窗口：命中位置前后各留这么多字符。
 const SNIPPET_PADDING: usize = 24;
 
-/// 索引指纹：会话期间变了就说明快照过期。
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct IndexFingerprint {
-    docs: i64,
-    doc_id_sum: i64,
-}
+/// 索引指纹：索引代次。会话期间有人写过索引，它就会变，快照随即作废。
+///
+/// 原先是「`search_docs` 的行数 + `doc_id` 之和」。那两个值在**重建同一个片段**
+/// 时不会变：`index_segment` 先删后插，而 `doc_id` 是不带 `AUTOINCREMENT` 的
+/// `INTEGER PRIMARY KEY`，SQLite 会把刚删掉的最大 rowid 再分配出去。于是正文与
+/// 词项都换了，指纹却一样，旧会话不会报过期，会把新正文套进旧查询结果（审查发现
+/// 的就是这一条）。代次是显式递增的，和行数、id 分配策略都无关。
+type IndexFingerprint = i64;
 
 /// 一个检索会话的内存状态。
 pub(crate) struct SearchSessionState {
@@ -117,7 +119,7 @@ pub(crate) fn start(
         index_coverage,
         warnings,
     };
-    let snapshot = materialize(core, &state)?;
+    let snapshot = materialize(core, &state, &state.last_page)?;
     core.search_sessions_mut().insert(session_id, state);
     Ok(snapshot)
 }
@@ -164,7 +166,13 @@ pub(crate) fn next_page(
                 }
                 value
             }
-            None => state.next_cursor.as_deref().map(parse_offset).transpose()?.unwrap_or(0),
+            None => match state.next_cursor.as_deref() {
+                Some(cursor) => parse_offset(cursor)?,
+                // 已经到末页，没有下一页了。**不能**退回第 0 条重来——那会把第一页
+                // 当成新一页返回（审查发现的就是这一条），而且「一直翻到空页为止」
+                // 的客户端会变成死循环。返回空页，`phase` 已经是 done。
+                None => return materialize(core, &state, &[]),
+            },
         };
 
         let (page, cursor) = page_window(
@@ -180,7 +188,7 @@ pub(crate) fn next_page(
         } else {
             SearchPhase::KeywordReady
         };
-        materialize(core, &state)
+        materialize(core, &state, &state.last_page)
     })();
 
     // 无论成功失败都要把会话放回去：失败（比如游标过期）不该把整个会话弄没。
@@ -196,7 +204,7 @@ pub(crate) fn snapshot(core: &Core, session_id: &str) -> Result<SearchSnapshot> 
             reason: format!("会话 {session_id} 不存在或已随重启丢失，请重新发起查询"),
         })?;
     ensure_fresh(core, state)?;
-    materialize(core, state)
+    materialize(core, state, &state.last_page)
 }
 
 pub(crate) fn cancel(core: &mut Core, session_id: &str) -> Result<SearchSnapshot> {
@@ -209,7 +217,7 @@ pub(crate) fn cancel(core: &mut Core, session_id: &str) -> Result<SearchSnapshot
     state.cancelled = true;
     state.phase = SearchPhase::Cancelled;
     state.next_cursor = None;
-    let result = materialize(core, &state);
+    let result = materialize(core, &state, &state.last_page);
     // 取消后还留在表里：这样 `search.snapshot` 还能读到「已取消」这个状态，
     // 前端不至于因为会话突然消失而把它当成过期（那是两件事）。
     core.search_sessions_mut().insert(session_id.to_owned(), state);
@@ -228,12 +236,7 @@ fn ensure_fresh(core: &Core, state: &SearchSessionState) -> Result<()> {
 }
 
 fn fingerprint(core: &Core) -> Result<IndexFingerprint> {
-    let (docs, doc_id_sum) = core.conn.query_row(
-        "SELECT COUNT(*), COALESCE(SUM(doc_id), 0) FROM search_docs",
-        [],
-        |row| Ok((row.get(0)?, row.get(1)?)),
-    )?;
-    Ok(IndexFingerprint { docs, doc_id_sum })
+    search::index_epoch(core)
 }
 
 /// 索引覆盖：复用 `indexes.status` 的口径，但只关心「能不能搜」。
@@ -287,13 +290,17 @@ fn parse_offset(cursor: &str) -> Result<usize> {
 }
 
 /// 把这一页的 doc_id 变成命中对象。整段正文只在这一步取，按页取。
-fn materialize(core: &Core, state: &SearchSessionState) -> Result<SearchSnapshot> {
+fn materialize(
+    core: &Core,
+    state: &SearchSessionState,
+    page: &[i64],
+) -> Result<SearchSnapshot> {
     let needle = state.request.query.trim().to_lowercase();
-    let rows = search::load_page(core, &state.last_page)?;
+    let rows = search::load_page(core, page)?;
     let mut by_id: HashMap<i64, _> = rows.into_iter().map(|row| (row.doc_id, row)).collect();
 
-    let mut results = Vec::with_capacity(state.last_page.len());
-    for doc_id in &state.last_page {
+    let mut results = Vec::with_capacity(page.len());
+    for doc_id in page {
         let Some(row) = by_id.remove(doc_id) else {
             continue;
         };
