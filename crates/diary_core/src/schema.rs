@@ -7,7 +7,7 @@
 use rusqlite::{params, Connection};
 
 /// 本构建支持的 schema 版本。
-pub const SCHEMA_VERSION: i64 = 6;
+pub const SCHEMA_VERSION: i64 = 7;
 
 /// 迁移到最新版本。已经是最新则什么都不做。
 pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
@@ -42,12 +42,60 @@ pub fn migrate(conn: &mut Connection) -> rusqlite::Result<()> {
     if current < 6 {
         tx.execute_batch(V6)?;
     }
+    if current < 7 {
+        tx.execute_batch(V7)?;
+        // 老库里已有的文字要在这一步补进索引：不回填的话，用户升级完会发现
+        // 「以前搜得到的话现在搜不到了」，要等一次手动重建才能修好。
+        backfill_capture_index(&tx)?;
+    }
+    tx.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
     tx.execute_batch(&format!("PRAGMA user_version = {SCHEMA_VERSION};"))?;
     tx.execute(
         "INSERT INTO schema_migrations(version, applied_at) VALUES (?1, ?2)",
         params![SCHEMA_VERSION, crate::support::to_iso(crate::support::now())],
     )?;
     tx.commit()
+}
+
+/// 把已有记录的文字补进 v6 的两张索引表。只在迁移里用一次。
+///
+/// 返回 `rusqlite::Result` 而不套 `CoreError`：迁移失败要整体回退，错误越贴近 SQL
+/// 本身越好定位。分词不在这里重实现——直接用 `search::grams_for` 与
+/// `search::TOKENIZER_VERSION`，否则迁移出来的词项会和增量索引对不上，
+/// 表现为「老记录搜到的词与新记录不一样」。
+fn backfill_capture_index(conn: &Connection) -> rusqlite::Result<()> {
+    // 「有文字」用与增量索引同一套空白定义（`search::non_empty_text`）：SQLite 自带
+    // 的 `trim` 只去 ASCII 空白，用它会把「只打了一个全角空格」的草稿也索引进来。
+    let rows: Vec<(String, String)> = {
+        let mut statement = conn.prepare(&format!(
+            "SELECT id, draft_text FROM captures WHERE {}",
+            crate::search::non_empty_text("draft_text")
+        ))?;
+        let rows = statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        rows
+    };
+
+    for (capture_id, text) in &rows {
+        conn.execute(
+            "INSERT INTO search_capture_docs (capture_id, text_length, tokenizer_version) \
+             VALUES (?1, ?2, ?3)",
+            params![
+                capture_id,
+                text.chars().count() as i64,
+                crate::search::TOKENIZER_VERSION,
+            ],
+        )?;
+        let doc_id = conn.last_insert_rowid();
+        let mut statement = conn.prepare(
+            "INSERT OR IGNORE INTO search_capture_grams (term, doc_id) VALUES (?1, ?2)",
+        )?;
+        for gram in crate::search::grams_for(text) {
+            statement.execute(params![gram, doc_id])?;
+        }
+    }
+    Ok(())
 }
 
 /// v1：记录、原始内容、幂等回执、域事件。
@@ -329,4 +377,33 @@ CREATE TABLE search_index_epoch (
 );
 
 INSERT INTO search_index_epoch (id, epoch) VALUES (1, 0);
+"#;
+
+/// v7：用户自己写的文字（`captures.draft_text`）也进关键词索引。
+///
+/// 为什么不把 `search_docs.segment_id` 改成可空、两路共用一张文档表：它是
+/// `NOT NULL` 加外键，SQLite 改不了列约束，只能整表重建；而 `DROP TABLE search_docs`
+/// 会按 `ON DELETE CASCADE` 把 `search_grams` 的词项全部带走，现有索引当场清空。
+/// 纯增量加两张对称的表，老库的派生内容索引一行都不用动，升级路径只是加法。
+///
+/// 两张表与 v5 的 `search_docs` / `search_grams` 完全同构：一张文档行表 +
+/// 一张 `WITHOUT ROWID` 的倒排表，词项同样靠 `(term, doc_id)` 主键去重，
+/// `tokenizer_version` 同样存在每一行上。所以「重建」「词项生成」「摘录高亮」
+/// 都是共用逻辑，不是两套。
+///
+/// 两张表的 `doc_id` 各自从 1 开始、会撞号，所以检索侧用 `search::DocRef`
+/// 记住一条引用来自哪张表，不靠负数或偏移这类约定。
+const V7: &str = r#"
+CREATE TABLE search_capture_docs (
+    doc_id            INTEGER PRIMARY KEY,
+    capture_id        TEXT NOT NULL UNIQUE REFERENCES captures(id) ON DELETE CASCADE,
+    text_length       INTEGER NOT NULL,
+    tokenizer_version TEXT NOT NULL
+);
+
+CREATE TABLE search_capture_grams (
+    term   TEXT NOT NULL,
+    doc_id INTEGER NOT NULL REFERENCES search_capture_docs(doc_id) ON DELETE CASCADE,
+    PRIMARY KEY (term, doc_id)
+) WITHOUT ROWID;
 "#;

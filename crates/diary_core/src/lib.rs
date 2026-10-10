@@ -1,8 +1,8 @@
 //! 「不写日记」设备内本地核心。
 //!
 //! 已落地：记录路径（B1a）、原件文件库与导入（B1b）、录音与队列（B1c）、
-//! 提取与来源定位（B2）、关键词索引与覆盖状态（B3a）。检索会话（search.*）、
-//! 向量与混合排序还没有。
+//! 提取与来源定位（B2）、关键词索引与覆盖状态（B3a）、检索会话 `search.*`（B3b）、
+//! 用户自己写的文字进检索（B3d）。向量与混合排序还没有。
 //!
 //! 三条硬性约束贯穿本 crate：
 //! 1. **不丢已确认的记录**：写入落在同一个事务里，事务提交后才返回 durable。
@@ -204,6 +204,15 @@ impl Core {
             &fingerprint,
             &serde_json::to_string(&capture)?,
         )?;
+        // 新记录的 draft_text 一定是空的：这里刷一次索引是「先清后写」的一致性
+        // 保证——同一个 capture_id 被重用或重放时不会留下上一条的旧词项。
+        search::index_capture(
+            &tx,
+            search::CaptureInput {
+                capture_id: &capture.id,
+                text: &capture.draft_text,
+            },
+        )?;
         insert_event(&tx, EventType::CaptureChanged, &capture.id, capture.revision)?;
         tx.commit()?;
         Ok(capture)
@@ -257,6 +266,15 @@ impl Core {
             "save_draft",
             &fingerprint,
             &serde_json::to_string(&result)?,
+        )?;
+        // 草稿正文是用户自己写的文字，也要能被搜到。索引写入与保存放在同一个事务：
+        // 不能出现「界面说已保存、检索却还看不到」这种两个事实的状态。
+        search::index_capture(
+            &tx,
+            search::CaptureInput {
+                capture_id: &capture.id,
+                text,
+            },
         )?;
         insert_event(&tx, EventType::CaptureChanged, &capture.id, new_revision)?;
         tx.commit()?;
@@ -662,7 +680,9 @@ impl Core {
         search::status(self, source_scope)
     }
 
-    /// 重建关键词索引；`source_scope` 为空表示整库。返回重建的片段数。
+    /// 重建关键词索引；`source_scope` 为空表示整库。
+    ///
+    /// 返回重建的文档数：派生内容片段 + 用户自己写的记录文字（`captures.draft_text`）。
     ///
     /// 整库重建是重活，产品路径上应当是可取消的任务；这一片先提供同步入口，
     /// 让覆盖状态与增量索引有个可靠的校准方式（任务化见 issue #31）。
@@ -670,14 +690,15 @@ impl Core {
         search::rebuild(self, source_scope)
     }
 
-    /// 关键词检索候选：命中片段的 ID，按索引写入顺序。
+    /// 关键词检索候选：命中**派生片段**的 ID，按索引写入顺序。
     ///
-    /// 只做「召回 + 回原文核对」，排序、分页与会话属于 #31。
+    /// 记录文字（`captures.draft_text`）不在这里：片段 ID 这个返回值表达不了它。
+    /// 要连记录文字一起搜，走 `start_search`。
     pub fn search_candidates(&self, query: &str, limit: usize) -> Result<Vec<String>> {
         search::candidates(self, query, limit)
     }
 
-    /// 命中数量。测试与实测脚本用它核对召回是否完整。
+    /// 命中数量。测试与实测脚本用它核对片段索引的召回是否完整。
     pub fn count_search_matches(&self, query: &str) -> Result<i64> {
         search::count_matches(self, query)
     }

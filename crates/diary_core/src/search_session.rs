@@ -37,17 +37,16 @@ const SNIPPET_PADDING: usize = 24;
 /// 词项都换了，指纹却一样，旧会话不会报过期，会把新正文套进旧查询结果（审查发现
 /// 的就是这一条）。代次是显式递增的，和行数、id 分配策略都无关。
 type IndexFingerprint = i64;
-
 /// 一个检索会话的内存状态。
 pub(crate) struct SearchSessionState {
     session_id: String,
     query_revision: i64,
     request: SearchRequest,
-    /// 命中的 doc_id，已按排序规则排好。只存 id：整段正文按页现取，别把几万条
-    /// 正文常驻内存。
-    ordered: Vec<i64>,
-    /// 上一页返回的 doc_id，`search.snapshot` 要能原样再给一次。
-    last_page: Vec<i64>,
+    /// 命中的索引文档引用（带来源），已按排序规则排好。只存引用：整段正文按页
+    /// 现取，别把几万条正文常驻内存。引用带来源是因为两张表的 `doc_id` 会撞号。
+    ordered: Vec<search::DocRef>,
+    /// 上一页返回的引用，`search.snapshot` 要能原样再给一次。
+    last_page: Vec<search::DocRef>,
     /// 下一页的游标；没有下一页时为 None。
     next_cursor: Option<String>,
     fingerprint: IndexFingerprint,
@@ -83,7 +82,7 @@ pub(crate) fn start(
     } else {
         search::ranked_matches(core, &needle, &request.filters)?
             .into_iter()
-            .map(|row| row.doc_id)
+            .map(|row| row.doc)
             .collect()
     };
 
@@ -236,8 +235,7 @@ fn ensure_fresh(core: &Core, state: &SearchSessionState) -> Result<()> {
 }
 
 fn fingerprint(core: &Core) -> Result<IndexFingerprint> {
-    search::index_epoch(core)
-}
+    search::index_epoch(core)}
 
 /// 索引覆盖：复用 `indexes.status` 的口径，但只关心「能不能搜」。
 fn index_coverage(core: &Core) -> Result<Coverage> {
@@ -247,10 +245,10 @@ fn index_coverage(core: &Core) -> Result<Coverage> {
 /// 取一页与下一页游标。越界或空结果时下一页游标是 None。
 fn page_window(
     session_id: &str,
-    ordered: &[i64],
+    ordered: &[search::DocRef],
     start: usize,
     page_size: i64,
-) -> (Vec<i64>, Option<String>) {
+) -> (Vec<search::DocRef>, Option<String>) {
     if start >= ordered.len() {
         return (Vec::new(), None);
     }
@@ -289,36 +287,67 @@ fn parse_offset(cursor: &str) -> Result<usize> {
         })
 }
 
-/// 把这一页的 doc_id 变成命中对象。整段正文只在这一步取，按页取。
+/// 把这一页的引用变成命中对象。整段正文只在这一步取，按页取。
+///
+/// 页是**显式传入**的（而不是只读 `state.last_page`）：末页之后再翻要能给出空页，
+/// 又不该把会话里「当前这一页」改掉——`search.snapshot` 还要能原样再给一次。
+/// 两路分两次取（两张表的 `doc_id` 各自从 1 开始，一条 UNION 就分不清来源），
+/// 取完按原顺序合并：先后只由排序键决定，不受「哪条 SQL 先返回」影响。
 fn materialize(
     core: &Core,
     state: &SearchSessionState,
-    page: &[i64],
+    page: &[search::DocRef],
 ) -> Result<SearchSnapshot> {
     let needle = state.request.query.trim().to_lowercase();
-    let rows = search::load_page(core, page)?;
-    let mut by_id: HashMap<i64, _> = rows.into_iter().map(|row| (row.doc_id, row)).collect();
+    // 两路分开取：两张表的 doc_id 各自从 1 开始，一条 UNION 就分不清来源。
+    let mut segments: HashMap<search::DocRef, _> = search::load_page(core, page)?
+        .into_iter()
+        .map(|row| (row.doc, row))
+        .collect();
+    let mut captures: HashMap<search::DocRef, _> = search::load_capture_page(core, page)?
+        .into_iter()
+        .map(|row| (row.doc, row))
+        .collect();
 
+    // 按传入的顺序合并：先后只由排序键决定，不受「哪条 SQL 先返回」影响。
     let mut results = Vec::with_capacity(page.len());
-    for doc_id in page {
-        let Some(row) = by_id.remove(doc_id) else {
-            continue;
-        };
-        let (snippet, highlights) = snippet_of(&row.text, &needle);
-        results.push(SearchHit {
-            hit_id: row.segment_id.clone(),
-            group_id: row.source_id.clone(),
-            source_kind: SourceKind::from_wire(&row.kind),
-            matched_by: vec![MatchedBy::Keyword],
-            coverage: row.coverage,
-            source_id: Some(row.source_id),
-            revision_id: Some(row.source_revision_id.clone()),
-            day_key: row.day_key,
-            title: row.asset_name,
-            snippet,
-            highlights,
-            locator: Some(row.locator),
-        });
+    for doc in page {
+        if let Some(row) = segments.remove(doc) {
+            let (snippet, highlights) = snippet_of(&row.text, &needle);
+            results.push(SearchHit {
+                hit_id: row.segment_id.clone(),
+                group_id: row.source_id.clone(),
+                source_kind: SourceKind::from_wire(&row.kind),
+                matched_by: vec![MatchedBy::Keyword],
+                coverage: row.coverage,
+                source_id: Some(row.source_id),
+                revision_id: Some(row.source_revision_id.clone()),
+                day_key: row.day_key,
+                title: row.asset_name,
+                snippet,
+                highlights,
+                locator: Some(row.locator),
+            });
+        } else if let Some(row) = captures.remove(doc) {
+            // 记录文字就是用户自己写的原文：没有原件、没有更细的定位，所以
+            // `locator` / `source_id` / `revision_id` / `title` 照实给 None，
+            // 覆盖状态是 Complete（没有提取这一步可言）。一段文字天然自成一个组。
+            let (snippet, highlights) = snippet_of(&row.text, &needle);
+            results.push(SearchHit {
+                hit_id: format!("cap_{}", row.capture_id),
+                group_id: row.capture_id,
+                source_kind: SourceKind::Text,
+                matched_by: vec![MatchedBy::Keyword],
+                coverage: Coverage::Complete,
+                source_id: None,
+                revision_id: None,
+                day_key: Some(row.day_key),
+                title: None,
+                snippet,
+                highlights,
+                locator: None,
+            });
+        }
     }
 
     Ok(SearchSnapshot {
@@ -367,11 +396,15 @@ fn snippet_of(text: &str, needle: &str) -> (Option<String>, Vec<TextRange>) {
     )
 }
 
-/// 命中的排序键：日期从近到远，再按出现位置，最后按写入顺序。
+/// 命中的排序键：日期从近到远，再按出现位置，再按家族，最后按写入顺序。
+///
+/// 家族序（片段在前、记录文字在后）是必需的：两张表的 `doc_id` 各自从 1 开始，
+/// 同日期、同位置时直接比 `doc_id` 的话，片段 1 与记录 1 谁排前面就取决于这个
+/// 撞号的巧合——结果不可复现，测试也会飘。
 ///
 /// 为什么不用「整词命中优先」：那需要在候选阶段为每一行查一次词表，代价随候选数
 /// 线性增长；这一片先把可解释的排序做出来，等混合检索带分数进来再一起做。
-pub(crate) fn sort_key(row: &search::RankedMatch) -> (i64, i64, i64) {
+pub(crate) fn sort_key(row: &search::RankedMatch) -> (i64, i64, i64, i64) {
     // 没有 day_key 的排最后（用很小的负数代表「很旧」）。
     let day = row
         .day_key
@@ -385,7 +418,7 @@ pub(crate) fn sort_key(row: &search::RankedMatch) -> (i64, i64, i64) {
             Some(year * 10_000 + month * 100 + day)
         })
         .unwrap_or(i64::MIN);
-    (-day, row.position, row.doc_id)
+    (-day, row.position, i64::from(row.doc.capture), row.doc.doc_id)
 }
 
 /// 会话表只给本模块用；放在 `Core` 上的小访问器避免把字段公开出去。
@@ -399,7 +432,7 @@ impl Core {
     }
 }
 
-/// 过滤条件原样带进 SQL；这里只做类型检查，不做语义解释。
+/// 过滤条件转成 SQL 参数；这里只做类型检查，不做语义解释。
 pub(crate) fn filters_to_params(filters: &SearchFilters) -> Result<(Option<String>, Option<String>)> {
     let kinds = if filters.kinds.is_empty() {
         None
@@ -412,9 +445,13 @@ pub(crate) fn filters_to_params(filters: &SearchFilters) -> Result<(Option<Strin
                 .collect::<Vec<_>>(),
         )?)
     };
+    // `Some([])` 也照原样序列化成空 JSON 数组：`IN (SELECT value FROM json_each('[]'))`
+    // 匹配不到任何行，于是空范围是「什么都不看」。早先这里把空数组折成 `None`
+    // （=看全部），那与 `indexes.status` 的口径相反，同一组过滤条件会在状态与结果
+    // 里给出互相矛盾的答案。
     let scope = match &filters.source_scope {
-        Some(values) if !values.is_empty() => Some(serde_json::to_string(values)?),
-        _ => None,
+        Some(values) => Some(serde_json::to_string(values)?),
+        None => None,
     };
     Ok((kinds, scope))
 }
