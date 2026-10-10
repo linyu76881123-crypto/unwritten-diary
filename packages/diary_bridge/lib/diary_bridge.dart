@@ -13,6 +13,7 @@
 /// ```
 library;
 
+export 'src/bridge_diary_api.dart';
 export 'src/rust/api.dart';
 // RustLib.init 与 BridgeError 的异常基类都在这里。
 export 'src/rust/frb_generated.dart';

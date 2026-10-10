@@ -734,6 +734,30 @@ impl Core {
         )?)
     }
 
+    /// 记录数量（不含回收站）。
+    ///
+    /// 契约 `CoreSnapshot.captureCount` 用它；草稿也算——用户看到的「记录」里
+    /// 草稿本来就在。回收站的不算，和默认检索口径一致。
+    pub fn count_captures(&self) -> Result<i64> {
+        Ok(self.conn.query_row(
+            "SELECT COUNT(*) FROM captures WHERE state <> 'trashed'",
+            [],
+            |row| row.get(0),
+        )?)
+    }
+
+    /// 事件表里最大的序号；一条事件都没有时是 0。
+    ///
+    /// 契约 `CoreSnapshot.lastEventSequence` 用它：调用方据此知道从哪个游标续读。
+    /// 不要用「拉全部事件再取最后一条」来算——那会把整张事件表读进内存。
+    pub fn last_event_sequence(&self) -> Result<i64> {
+        Ok(self.conn.query_row(
+            "SELECT COALESCE(MAX(sequence), 0) FROM domain_events",
+            [],
+            |row| row.get(0),
+        )?)
+    }
+
     /// 资产数量与内容存储占用的字节数。
     pub fn asset_stats(&self) -> Result<(i64, i64)> {
         assets::asset_stats(self)

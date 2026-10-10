@@ -1,5 +1,5 @@
 name: diary_bridge
-description: Rust 核心的 flutter_rust_bridge 生成绑定与 BridgeSession 入口；diary_api 适配层见 issue #38。
+description: Rust 核心的 flutter_rust_bridge 生成绑定、BridgeSession 入口，以及覆盖记录路径的 diary_api 适配层。
 version: 0.1.0
 publish_to: none
 

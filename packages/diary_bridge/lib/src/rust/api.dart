@@ -142,6 +142,12 @@ class LibraryInfo {
   final List<String> capabilities;
   final RecoverySummary recovery;
 
+  /// 记录数量（不含回收站），契约 `CoreSnapshot.captureCount`。
+  final PlatformInt64 captureCount;
+
+  /// 事件表里最大的序号，契约 `CoreSnapshot.lastEventSequence`；没有事件时为 0。
+  final PlatformInt64 lastEventSequence;
+
   const LibraryInfo({
     required this.apiVersion,
     required this.dataSchemaVersion,
@@ -149,6 +155,8 @@ class LibraryInfo {
     required this.libraryId,
     required this.capabilities,
     required this.recovery,
+    required this.captureCount,
+    required this.lastEventSequence,
   });
 
   @override
@@ -158,7 +166,9 @@ class LibraryInfo {
       buildVersion.hashCode ^
       libraryId.hashCode ^
       capabilities.hashCode ^
-      recovery.hashCode;
+      recovery.hashCode ^
+      captureCount.hashCode ^
+      lastEventSequence.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -170,7 +180,9 @@ class LibraryInfo {
           buildVersion == other.buildVersion &&
           libraryId == other.libraryId &&
           capabilities == other.capabilities &&
-          recovery == other.recovery;
+          recovery == other.recovery &&
+          captureCount == other.captureCount &&
+          lastEventSequence == other.lastEventSequence;
 }
 
 /// 打开资料库后的恢复摘要。数字都是真实统计，不是估计。

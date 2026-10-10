@@ -58,6 +58,10 @@ pub struct LibraryInfo {
     /// 已经接到桥上的契约方法名。**没列出来的就是还没接**，界面据此决定哪些入口可见。
     pub capabilities: Vec<String>,
     pub recovery: RecoverySummary,
+    /// 记录数量（不含回收站），契约 `CoreSnapshot.captureCount`。
+    pub capture_count: i64,
+    /// 事件表里最大的序号，契约 `CoreSnapshot.lastEventSequence`；没有事件时为 0。
+    pub last_event_sequence: i64,
 }
 
 /// 一个打开的资料库会话。Dart 侧持有的就是这个句柄。
@@ -86,6 +90,10 @@ impl BridgeSession {
     pub fn info(&self) -> Result<LibraryInfo, BridgeError> {
         let core = self.lock()?;
         let recovery = recovery_summary(&core)?;
+        // 契约的 CoreSnapshot 需要另外两个数字，一起在这里给出去：
+        // 不提供的话适配层只能填 0，而 0 对已有记录的资料库是假话。
+        let capture_count = core.count_captures()?;
+        let last_event_sequence = core.last_event_sequence()?;
         Ok(LibraryInfo {
             api_version: "1.0".to_owned(),
             data_schema_version: core.schema_version()?,
@@ -93,6 +101,8 @@ impl BridgeSession {
             library_id: self.library_id.clone(),
             capabilities: wired_capabilities(),
             recovery,
+            capture_count,
+            last_event_sequence,
         })
     }
 
