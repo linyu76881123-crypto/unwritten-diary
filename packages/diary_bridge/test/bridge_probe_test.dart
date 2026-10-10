@@ -44,13 +44,14 @@ void main() {
   test('打开资料库能拿到核心信息与能力清单', () async {
     final info = await session.info();
     expect(info.apiVersion, '1.0');
-    expect(info.dataSchemaVersion, 5, reason: '当前 schema 版本');
+    expect(info.dataSchemaVersion, 6, reason: '当前 schema 版本');
     expect(info.libraryId, 'library');
     expect(info.capabilities, contains('captures.commit'));
     expect(info.capabilities, contains('imports.finish'));
     expect(info.capabilities, contains('indexes.status'));
+    // 检索会话在 B3b 接上了。
+    expect(info.capabilities, contains('search.start'));
     // 诚实的能力声明：还没接的不该出现在清单里。
-    expect(info.capabilities, isNot(contains('search.start')));
     expect(info.capabilities, isNot(contains('diary.generate')));
     expect(info.recovery.pendingJobs, 0);
   });

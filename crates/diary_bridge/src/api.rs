@@ -14,7 +14,7 @@ use chrono::{DateTime, Utc};
 use diary_core::{
     Capture, CapturePage, CommitResult, Core, CoreError, DomainEvent, DraftSaveResult,
     ExtractedContent, ImportManifest, ImportOrigin, ImportStatus, ImportTicket, IndexStatus, Job,
-    JobState, SourceLocation, SourceLocator,
+    JobState, SearchRequest, SearchSnapshot, SourceLocation, SourceLocator,
 };
 use flutter_rust_bridge::frb;
 
@@ -243,6 +243,40 @@ impl BridgeSession {
         Ok(core.index_status(source_scope.as_deref())?)
     }
 
+    // ------------------------------------------------------------ 检索会话
+
+    /// 发起一次检索，契约第 4.4 节 `search.start`。
+    pub fn start_search(
+        &self,
+        request: SearchRequest,
+        query_revision: i64,
+    ) -> Result<SearchSnapshot, BridgeError> {
+        let mut core = self.lock()?;
+        Ok(core.start_search(request, query_revision)?)
+    }
+
+    /// 翻页；`cursor` 为空表示接着当前进度。游标不属于这个会话报 `cursor_expired`。
+    pub fn search_next_page(
+        &self,
+        session_id: String,
+        cursor: Option<String>,
+    ) -> Result<SearchSnapshot, BridgeError> {
+        let mut core = self.lock()?;
+        Ok(core.search_next_page(&session_id, cursor.as_deref())?)
+    }
+
+    /// 读当前快照；会话不存在或索引变了报 `search_expired`。
+    pub fn search_snapshot(&self, session_id: String) -> Result<SearchSnapshot, BridgeError> {
+        let core = self.lock()?;
+        Ok(core.search_snapshot(&session_id)?)
+    }
+
+    /// 取消后续处理；不删除任何原件。
+    pub fn cancel_search(&self, session_id: String) -> Result<SearchSnapshot, BridgeError> {
+        let mut core = self.lock()?;
+        Ok(core.cancel_search(&session_id)?)
+    }
+
     // ------------------------------------------------------------ 任务与事件
 
     /// 按状态列出任务；不传状态就列全部。
@@ -329,6 +363,10 @@ fn wired_capabilities() -> Vec<String> {
         "sources.extractedContent",
         "sources.locate",
         "indexes.status",
+        "search.start",
+        "search.nextPage",
+        "search.snapshot",
+        "search.cancel",
         "jobs.list",
         "jobs.get",
         "jobs.nextWakeup",

@@ -100,10 +100,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LocatorType dco_decode_box_autoadd_locator_type(dynamic raw);
 
   @protected
+  MatchedBy dco_decode_box_autoadd_matched_by(dynamic raw);
+
+  @protected
   ProcessingStatus dco_decode_box_autoadd_processing_status(dynamic raw);
 
   @protected
   RecordingState dco_decode_box_autoadd_recording_state(dynamic raw);
+
+  @protected
+  SearchMode dco_decode_box_autoadd_search_mode(dynamic raw);
+
+  @protected
+  SearchPhase dco_decode_box_autoadd_search_phase(dynamic raw);
+
+  @protected
+  SearchRequest dco_decode_box_autoadd_search_request(dynamic raw);
 
   @protected
   SourceLocator dco_decode_box_autoadd_source_locator(dynamic raw);
@@ -208,13 +220,28 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<JobState> dco_decode_list_job_state(dynamic raw);
 
   @protected
+  List<MatchedBy> dco_decode_list_matched_by(dynamic raw);
+
+  @protected
   Float64List dco_decode_list_prim_f_64_strict(dynamic raw);
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<SearchHit> dco_decode_list_search_hit(dynamic raw);
+
+  @protected
+  List<SourceKind> dco_decode_list_source_kind(dynamic raw);
+
+  @protected
+  List<TextRange> dco_decode_list_text_range(dynamic raw);
+
+  @protected
   LocatorType dco_decode_locator_type(dynamic raw);
+
+  @protected
+  MatchedBy dco_decode_matched_by(dynamic raw);
 
   @protected
   String? dco_decode_opt_String(dynamic raw);
@@ -261,10 +288,22 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LocatorType? dco_decode_opt_box_autoadd_locator_type(dynamic raw);
 
   @protected
+  MatchedBy? dco_decode_opt_box_autoadd_matched_by(dynamic raw);
+
+  @protected
   ProcessingStatus? dco_decode_opt_box_autoadd_processing_status(dynamic raw);
 
   @protected
   RecordingState? dco_decode_opt_box_autoadd_recording_state(dynamic raw);
+
+  @protected
+  SearchMode? dco_decode_opt_box_autoadd_search_mode(dynamic raw);
+
+  @protected
+  SearchPhase? dco_decode_opt_box_autoadd_search_phase(dynamic raw);
+
+  @protected
+  SourceLocator? dco_decode_opt_box_autoadd_source_locator(dynamic raw);
 
   @protected
   SourceRevision? dco_decode_opt_box_autoadd_source_revision(dynamic raw);
@@ -291,6 +330,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RecoverySummary dco_decode_recovery_summary(dynamic raw);
 
   @protected
+  SearchFilters dco_decode_search_filters(dynamic raw);
+
+  @protected
+  SearchHit dco_decode_search_hit(dynamic raw);
+
+  @protected
+  SearchMode dco_decode_search_mode(dynamic raw);
+
+  @protected
+  SearchPhase dco_decode_search_phase(dynamic raw);
+
+  @protected
+  SearchRequest dco_decode_search_request(dynamic raw);
+
+  @protected
+  SearchSnapshot dco_decode_search_snapshot(dynamic raw);
+
+  @protected
+  SourceKind dco_decode_source_kind(dynamic raw);
+
+  @protected
   SourceLocation dco_decode_source_location(dynamic raw);
 
   @protected
@@ -298,6 +358,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SourceRevision dco_decode_source_revision(dynamic raw);
+
+  @protected
+  TextRange dco_decode_text_range(dynamic raw);
 
   @protected
   int dco_decode_u_32(dynamic raw);
@@ -399,12 +462,26 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   LocatorType sse_decode_box_autoadd_locator_type(SseDeserializer deserializer);
 
   @protected
+  MatchedBy sse_decode_box_autoadd_matched_by(SseDeserializer deserializer);
+
+  @protected
   ProcessingStatus sse_decode_box_autoadd_processing_status(
     SseDeserializer deserializer,
   );
 
   @protected
   RecordingState sse_decode_box_autoadd_recording_state(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SearchMode sse_decode_box_autoadd_search_mode(SseDeserializer deserializer);
+
+  @protected
+  SearchPhase sse_decode_box_autoadd_search_phase(SseDeserializer deserializer);
+
+  @protected
+  SearchRequest sse_decode_box_autoadd_search_request(
     SseDeserializer deserializer,
   );
 
@@ -517,13 +594,28 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<JobState> sse_decode_list_job_state(SseDeserializer deserializer);
 
   @protected
+  List<MatchedBy> sse_decode_list_matched_by(SseDeserializer deserializer);
+
+  @protected
   Float64List sse_decode_list_prim_f_64_strict(SseDeserializer deserializer);
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<SearchHit> sse_decode_list_search_hit(SseDeserializer deserializer);
+
+  @protected
+  List<SourceKind> sse_decode_list_source_kind(SseDeserializer deserializer);
+
+  @protected
+  List<TextRange> sse_decode_list_text_range(SseDeserializer deserializer);
+
+  @protected
   LocatorType sse_decode_locator_type(SseDeserializer deserializer);
+
+  @protected
+  MatchedBy sse_decode_matched_by(SseDeserializer deserializer);
 
   @protected
   String? sse_decode_opt_String(SseDeserializer deserializer);
@@ -586,12 +678,32 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  MatchedBy? sse_decode_opt_box_autoadd_matched_by(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   ProcessingStatus? sse_decode_opt_box_autoadd_processing_status(
     SseDeserializer deserializer,
   );
 
   @protected
   RecordingState? sse_decode_opt_box_autoadd_recording_state(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SearchMode? sse_decode_opt_box_autoadd_search_mode(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SearchPhase? sse_decode_opt_box_autoadd_search_phase(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SourceLocator? sse_decode_opt_box_autoadd_source_locator(
     SseDeserializer deserializer,
   );
 
@@ -622,6 +734,27 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   RecoverySummary sse_decode_recovery_summary(SseDeserializer deserializer);
 
   @protected
+  SearchFilters sse_decode_search_filters(SseDeserializer deserializer);
+
+  @protected
+  SearchHit sse_decode_search_hit(SseDeserializer deserializer);
+
+  @protected
+  SearchMode sse_decode_search_mode(SseDeserializer deserializer);
+
+  @protected
+  SearchPhase sse_decode_search_phase(SseDeserializer deserializer);
+
+  @protected
+  SearchRequest sse_decode_search_request(SseDeserializer deserializer);
+
+  @protected
+  SearchSnapshot sse_decode_search_snapshot(SseDeserializer deserializer);
+
+  @protected
+  SourceKind sse_decode_source_kind(SseDeserializer deserializer);
+
+  @protected
   SourceLocation sse_decode_source_location(SseDeserializer deserializer);
 
   @protected
@@ -629,6 +762,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   SourceRevision sse_decode_source_revision(SseDeserializer deserializer);
+
+  @protected
+  TextRange sse_decode_text_range(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_32(SseDeserializer deserializer);
@@ -763,6 +899,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_matched_by(
+    MatchedBy self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_processing_status(
     ProcessingStatus self,
     SseSerializer serializer,
@@ -771,6 +913,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_box_autoadd_recording_state(
     RecordingState self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_search_mode(
+    SearchMode self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_search_phase(
+    SearchPhase self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_box_autoadd_search_request(
+    SearchRequest self,
     SseSerializer serializer,
   );
 
@@ -901,6 +1061,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_job_state(List<JobState> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_matched_by(
+    List<MatchedBy> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_prim_f_64_strict(
     Float64List self,
     SseSerializer serializer,
@@ -913,7 +1079,28 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_search_hit(
+    List<SearchHit> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_source_kind(
+    List<SourceKind> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_text_range(
+    List<TextRange> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_locator_type(LocatorType self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_matched_by(MatchedBy self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_String(String? self, SseSerializer serializer);
@@ -997,6 +1184,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_opt_box_autoadd_matched_by(
+    MatchedBy? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_processing_status(
     ProcessingStatus? self,
     SseSerializer serializer,
@@ -1005,6 +1198,24 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_opt_box_autoadd_recording_state(
     RecordingState? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_search_mode(
+    SearchMode? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_search_phase(
+    SearchPhase? self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_opt_box_autoadd_source_locator(
+    SourceLocator? self,
     SseSerializer serializer,
   );
 
@@ -1051,6 +1262,30 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_search_filters(SearchFilters self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_search_hit(SearchHit self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_search_mode(SearchMode self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_search_phase(SearchPhase self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_search_request(SearchRequest self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_search_snapshot(
+    SearchSnapshot self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_source_kind(SourceKind self, SseSerializer serializer);
+
+  @protected
   void sse_encode_source_location(
     SourceLocation self,
     SseSerializer serializer,
@@ -1064,6 +1299,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     SourceRevision self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_text_range(TextRange self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_32(int self, SseSerializer serializer);

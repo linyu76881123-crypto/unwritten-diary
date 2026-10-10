@@ -24,7 +24,9 @@ use jieba_rs::Jieba;
 use rusqlite::{params, Transaction};
 
 use crate::error::Result;
-use crate::model::{Coverage, IndexStatus};
+use crate::model::{
+    Coverage, IndexStatus, LocatorType, SearchFilters, SourceLocator,
+};
 use crate::Core;
 
 /// 分词器与索引布局的版本。
@@ -90,6 +92,7 @@ pub(crate) struct SegmentInput<'a> {
 ///
 /// 可重入：同一个 `segment_id` 先清后写，不会留旧词项。
 pub(crate) fn index_segment(tx: &Transaction<'_>, segment: SegmentInput<'_>) -> Result<()> {
+    bump_index_epoch(tx)?;
     tx.execute(
         "DELETE FROM search_docs WHERE segment_id = ?1",
         params![segment.segment_id],
@@ -150,6 +153,26 @@ pub(crate) fn index_content(core: &mut Core, content_id: &str) -> Result<i64> {
     }
     tx.commit()?;
     Ok(indexed)
+}
+
+/// 把索引代次 +1。每次索引写入都要在自己的事务里调一次。
+///
+/// 会话拿它当快照指纹：只要有人写过索引，进行中的会话就会在下次翻页时报
+/// `search_expired`。**不要**换成「数行数 + 求和 doc_id」那类做法——删了再插
+/// 时 SQLite 会复用 rowid，那种指纹在「重建同一个片段」时完全不变（见 v6 迁移
+/// 的说明）。
+pub(crate) fn bump_index_epoch(tx: &Transaction<'_>) -> Result<()> {
+    tx.execute("UPDATE search_index_epoch SET epoch = epoch + 1 WHERE id = 1", [])?;
+    Ok(())
+}
+
+/// 当前索引代次。会话开始时记下来，翻页时比对。
+pub(crate) fn index_epoch(core: &Core) -> Result<i64> {
+    Ok(core
+        .conn
+        .query_row("SELECT epoch FROM search_index_epoch WHERE id = 1", [], |row| {
+            row.get(0)
+        })?)
 }
 
 /// 重建关键词索引。`source_scope` 为空表示整个资料库。
@@ -412,4 +435,147 @@ fn candidate_filter(query: &str) -> Option<(String, String)> {
 
 fn placeholders(count: usize) -> String {
     std::iter::repeat_n("?", count).collect::<Vec<_>>().join(", ")
+}
+// ------------------------------------------------------------ 会话用的查询
+
+/// 一条候选的排序键（不含正文：几万条候选时不要把正文都读进来）。
+pub(crate) struct RankedMatch {
+    pub doc_id: i64,
+    /// 命中在片段正文里的位置（1 开始，字符数）。
+    pub position: i64,
+    pub day_key: Option<String>,
+}
+
+/// 一页命中要展示的全部字段。
+pub(crate) struct PageRow {
+    pub doc_id: i64,
+    pub segment_id: String,
+    pub text: String,
+    pub day_key: Option<String>,
+    pub kind: String,
+    pub source_id: String,
+    pub source_revision_id: String,
+    pub coverage: Coverage,
+    pub asset_name: Option<String>,
+    pub locator: SourceLocator,
+}
+
+/// 带过滤条件的候选，已按会话的排序规则排好。
+///
+/// 排序：日期从近到远 → 出现位置 → 写入顺序。**没有**做「整词命中优先」：
+/// 那要为每一行查一次词表，代价随候选数线性增长；等混合检索带分数进来再一起做。
+pub(crate) fn ranked_matches(
+    core: &Core,
+    needle: &str,
+    filters: &SearchFilters,
+) -> Result<Vec<RankedMatch>> {
+    let Some((filter, _)) = candidate_filter(needle) else {
+        return Ok(Vec::new());
+    };
+    let (kinds, scope) = crate::search_session::filters_to_params(filters)?;
+
+    let mut statement = core.conn.prepare(
+        "SELECT d.doc_id, instr(lower(s.text), ?2), c.day_key \
+         FROM search_grams g \
+         CROSS JOIN search_docs d ON d.doc_id = g.doc_id \
+         CROSS JOIN extracted_segments s ON s.id = d.segment_id \
+         JOIN extracted_contents ec ON ec.id = s.content_id \
+         JOIN source_items src ON src.source_id = ec.source_id \
+         JOIN captures c ON c.id = src.capture_id \
+         WHERE g.term = ?1 AND instr(lower(s.text), ?2) > 0 \
+           AND (?3 = 1 OR c.state <> 'trashed') \
+           AND (?4 IS NULL OR c.day_key >= ?4) \
+           AND (?5 IS NULL OR c.day_key <= ?5) \
+           AND (?6 IS NULL OR src.kind IN (SELECT value FROM json_each(?6))) \
+           AND (?7 IS NULL OR src.source_id IN (SELECT value FROM json_each(?7)))",
+    )?;
+    let rows = statement
+        .query_map(
+            params![
+                filter,
+                needle,
+                i64::from(filters.include_trashed),
+                filters.from_day_key,
+                filters.to_day_key,
+                kinds,
+                scope,
+            ],
+            |row| {
+                Ok(RankedMatch {
+                    doc_id: row.get(0)?,
+                    position: row.get(1)?,
+                    day_key: row.get(2)?,
+                })
+            },
+        )?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    let mut matches = rows;
+    matches.sort_by_key(crate::search_session::sort_key);
+    Ok(matches)
+}
+
+/// 按 doc_id 取这一页要展示的字段。正文只在这里读，按页读。
+pub(crate) fn load_page(core: &Core, doc_ids: &[i64]) -> Result<Vec<PageRow>> {
+    if doc_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let placeholders = placeholders(doc_ids.len());
+    let sql = format!(
+        "SELECT d.doc_id, s.id, s.text, c.day_key, src.kind, ec.source_id, s.source_revision_id, \
+                ec.coverage, a.original_name, \
+                s.locator_type, s.text_start, s.text_end, s.start_ms, s.end_ms, s.page_number, \
+                s.block_id, s.rect_left, s.rect_top, s.rect_right, s.rect_bottom, s.asset_id \
+         FROM search_docs d \
+         JOIN extracted_segments s ON s.id = d.segment_id \
+         JOIN extracted_contents ec ON ec.id = s.content_id \
+         JOIN source_items src ON src.source_id = ec.source_id \
+         JOIN captures c ON c.id = src.capture_id \
+         LEFT JOIN source_revisions sr ON sr.revision_id = s.source_revision_id \
+         LEFT JOIN assets a ON a.id = sr.asset_id \
+         WHERE d.doc_id IN ({placeholders})"
+    );
+    let mut statement = core.conn.prepare(&sql)?;
+    let rows = statement
+        .query_map(rusqlite::params_from_iter(doc_ids.iter()), |row| {
+            let coverage: String = row.get(7)?;
+            let locator_type: String = row.get(9)?;
+            let rect = match (
+                row.get::<_, Option<f64>>(16)?,
+                row.get::<_, Option<f64>>(17)?,
+                row.get::<_, Option<f64>>(18)?,
+                row.get::<_, Option<f64>>(19)?,
+            ) {
+                (Some(left), Some(top), Some(right), Some(bottom)) => {
+                    Some([left, top, right, bottom])
+                }
+                _ => None,
+            };
+            Ok(PageRow {
+                doc_id: row.get(0)?,
+                segment_id: row.get(1)?,
+                text: row.get(2)?,
+                day_key: row.get(3)?,
+                kind: row.get(4)?,
+                source_id: row.get(5)?,
+                source_revision_id: row.get(6)?,
+                coverage: Coverage::from_wire(&coverage).unwrap_or(Coverage::Unavailable),
+                asset_name: row.get(8)?,
+                locator: SourceLocator {
+                    locator_type: LocatorType::from_wire(&locator_type)
+                        .unwrap_or(LocatorType::TextRange),
+                    source_revision_id: row.get(6)?,
+                    text_start: row.get(10)?,
+                    text_end: row.get(11)?,
+                    start_ms: row.get(12)?,
+                    end_ms: row.get(13)?,
+                    page_number: row.get(14)?,
+                    block_id: row.get(15)?,
+                    rect,
+                    asset_id: row.get(20)?,
+                },
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(rows)
 }

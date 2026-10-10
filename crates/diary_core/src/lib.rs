@@ -20,6 +20,7 @@ pub mod model;
 mod recordings;
 mod schema;
 mod search;
+mod search_session;
 mod support;
 
 pub use assets::ImportRequest;
@@ -33,9 +34,10 @@ pub use model::{
     Coverage, ExtractedContent, ExtractedSegment, ImportState, ImportStatus, ImportTicket,
     IndexStatus, Job, JobPriority, JobProgress, JobState, LocatorType, NativeRecordingStatus,
     NewJob,
-    ProcessingStatus, ProcessingSummary, RecordingFinalizeResult, RecordingRecovery,
+    MatchedBy, ProcessingStatus, ProcessingSummary, RecordingFinalizeResult, RecordingRecovery,
     RecordingSession, RecordingState, RecordingTicket, SegmentManifest, SegmentReceipt,
-    SourceItem, SourceLocation, SourceLocator, SourceRevision,
+    SearchFilters, SearchHit, SearchMode, SearchPhase, SearchRequest, SearchSnapshot,
+    SourceItem, SourceKind, SourceLocation, SourceLocator, SourceRevision, TextRange,
 };
 pub use schema::SCHEMA_VERSION;
 pub use search::TOKENIZER_VERSION;
@@ -65,6 +67,8 @@ pub struct Core {
     root: Option<PathBuf>,
     /// 只读租约，内存态，不持久化。
     leases: HashMap<String, assets::LeaseRecord>,
+    /// 检索会话，内存态：它记录的是「这一次查询的翻页与失效判断」，不是业务数据。
+    search_sessions: HashMap<String, search_session::SearchSessionState>,
 }
 
 /// 一行的原始形态：先取出来，再按业务语义解析，避免把解析错误塞进 SQL 层。
@@ -115,6 +119,7 @@ impl Core {
             conn,
             root,
             leases: HashMap::new(),
+            search_sessions: HashMap::new(),
         })
     }
 
@@ -675,6 +680,32 @@ impl Core {
     /// 命中数量。测试与实测脚本用它核对召回是否完整。
     pub fn count_search_matches(&self, query: &str) -> Result<i64> {
         search::count_matches(self, query)
+    }
+
+    // ------------------------------------------------------------ 检索会话
+
+    /// 发起一次检索，契约第 4.4 节 `search.start`。
+    pub fn start_search(
+        &mut self,
+        request: SearchRequest,
+        query_revision: i64,
+    ) -> Result<SearchSnapshot> {
+        search_session::start(self, request, query_revision)
+    }
+
+    /// 翻页，契约第 4.4 节 `search.nextPage`。游标不属于这个会话时报 `cursor_expired`。
+    pub fn search_next_page(&mut self, session_id: &str, cursor: Option<&str>) -> Result<SearchSnapshot> {
+        search_session::next_page(self, session_id, cursor)
+    }
+
+    /// 读当前快照，契约第 4.4 节 `search.snapshot`。会话不存在或索引变了报 `search_expired`。
+    pub fn search_snapshot(&self, session_id: &str) -> Result<SearchSnapshot> {
+        search_session::snapshot(self, session_id)
+    }
+
+    /// 取消后续处理，契约第 4.4 节 `search.cancel`。不删除任何原件。
+    pub fn cancel_search(&mut self, session_id: &str) -> Result<SearchSnapshot> {
+        search_session::cancel(self, session_id)
     }
 
     // ------------------------------------------------------------ 原件与导入

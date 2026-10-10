@@ -856,3 +856,197 @@ pub struct IndexStatus {
     /// 用户可读的原因说明。
     pub reasons: Vec<String>,
 }
+
+/// 检索模式，契约第 2.6 节。这一片只实现 `Keyword`。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SearchMode {
+    Keyword,
+    Semantic,
+    Hybrid,
+}
+
+impl SearchMode {
+    pub fn wire(self) -> &'static str {
+        match self {
+            Self::Keyword => "keyword",
+            Self::Semantic => "semantic",
+            Self::Hybrid => "hybrid",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "keyword" => Some(Self::Keyword),
+            "semantic" => Some(Self::Semantic),
+            "hybrid" => Some(Self::Hybrid),
+            _ => None,
+        }
+    }
+}
+
+/// 检索阶段，契约第 2.6 节。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SearchPhase {
+    Initial,
+    KeywordReady,
+    HybridReady,
+    Done,
+    Cancelled,
+}
+
+impl SearchPhase {
+    pub fn wire(self) -> &'static str {
+        match self {
+            Self::Initial => "initial",
+            Self::KeywordReady => "keyword_ready",
+            Self::HybridReady => "hybrid_ready",
+            Self::Done => "done",
+            Self::Cancelled => "cancelled",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "initial" => Some(Self::Initial),
+            "keyword_ready" => Some(Self::KeywordReady),
+            "hybrid_ready" => Some(Self::HybridReady),
+            "done" => Some(Self::Done),
+            "cancelled" => Some(Self::Cancelled),
+            _ => None,
+        }
+    }
+}
+
+/// 一条命中是靠什么匹配上的，契约第 2.6 节。这一片只产出 `Keyword`。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MatchedBy {
+    Keyword,
+    Semantic,
+    Metadata,
+}
+
+impl MatchedBy {
+    pub fn wire(self) -> &'static str {
+        match self {
+            Self::Keyword => "keyword",
+            Self::Semantic => "semantic",
+            Self::Metadata => "metadata",
+        }
+    }
+
+    pub fn from_wire(value: &str) -> Option<Self> {
+        match value {
+            "keyword" => Some(Self::Keyword),
+            "semantic" => Some(Self::Semantic),
+            "metadata" => Some(Self::Metadata),
+            _ => None,
+        }
+    }
+}
+
+/// 材料类型，契约第 2.3 节的 SourceKind。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SourceKind {
+    Text,
+    Image,
+    Audio,
+    Video,
+    File,
+    Link,
+}
+
+impl SourceKind {
+    pub fn wire(self) -> &'static str {
+        match self {
+            Self::Text => "text",
+            Self::Image => "image",
+            Self::Audio => "audio",
+            Self::Video => "video",
+            Self::File => "file",
+            Self::Link => "link",
+        }
+    }
+
+    /// 认不出的类型落到 `file`——这是「有原件但不知道是什么」最接近的诚实答案，
+    /// 而不是丢掉这条命中。
+    pub fn from_wire(value: &str) -> Self {
+        match value {
+            "text" => Self::Text,
+            "image" => Self::Image,
+            "audio" => Self::Audio,
+            "video" => Self::Video,
+            "link" => Self::Link,
+            _ => Self::File,
+        }
+    }
+}
+
+/// 命中里的高亮区间，**下标相对 `snippet`**，不是相对整段正文。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TextRange {
+    pub start: i64,
+    pub end: i64,
+}
+
+/// 检索过滤条件，契约第 2.6 节。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct SearchFilters {
+    pub from_day_key: Option<String>,
+    pub to_day_key: Option<String>,
+    pub kinds: Vec<SourceKind>,
+    /// 限定来源范围；空表示不限。
+    pub source_scope: Option<Vec<String>>,
+    pub include_old_diary_versions: bool,
+    pub include_trashed: bool,
+}
+
+/// 一次检索请求，契约第 2.6 节。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SearchRequest {
+    /// 用户原样输入，是普通检索文字，不直接当 FTS 表达式执行。
+    pub query: String,
+    pub mode: SearchMode,
+    pub filters: SearchFilters,
+    pub page_size: i64,
+}
+
+/// 一条检索命中，契约第 2.6 节。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SearchHit {
+    /// 稳定标识：直接用片段 ID。同一份内容在不同页里出现时是同一个值。
+    pub hit_id: String,
+    /// 同一来源的命中归到一组，避免一份长材料占满结果。
+    pub group_id: String,
+    pub source_kind: SourceKind,
+    pub matched_by: Vec<MatchedBy>,
+    pub coverage: Coverage,
+    pub source_id: Option<String>,
+    pub revision_id: Option<String>,
+    pub day_key: Option<String>,
+    /// 原件名（有资产时）；纯文字来源没有名字。
+    pub title: Option<String>,
+    /// 命中位置附近的摘录。
+    pub snippet: Option<String>,
+    /// 高亮区间，下标相对 `snippet`。
+    pub highlights: Vec<TextRange>,
+    pub locator: Option<SourceLocator>,
+}
+
+/// 检索会话的完整快照，契约第 2.6 节。
+///
+/// 每次返回的是**当前页的完整快照**，前端按 `hit_id` 更新，不要把两份快照
+/// 当增量拼接。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SearchSnapshot {
+    pub session_id: String,
+    pub query_revision: i64,
+    pub phase: SearchPhase,
+    pub results: Vec<SearchHit>,
+    pub cursor: Option<String>,
+    pub index_coverage: Coverage,
+    pub warnings: Vec<String>,
+}
