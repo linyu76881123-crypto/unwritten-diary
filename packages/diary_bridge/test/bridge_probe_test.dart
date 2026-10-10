@@ -6,6 +6,8 @@ import 'package:diary_bridge/diary_bridge.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 import 'package:test/test.dart';
 
+import 'expected_schema.dart';
+
 /// 端到端：Dart → 桥接 → 真实核心 → SQLite + 文件库。
 ///
 /// 运行前先构建宿主平台产物：
@@ -44,7 +46,11 @@ void main() {
   test('打开资料库能拿到核心信息与能力清单', () async {
     final info = await session.info();
     expect(info.apiVersion, '1.0');
-    expect(info.dataSchemaVersion, 7, reason: '当前 schema 版本（v6 索引代次、v7 记录文字进索引）');
+    expect(
+      info.dataSchemaVersion,
+      expectedDataSchemaVersion,
+      reason: '当前 schema 版本（v6 索引代次、v7 记录文字进索引）',
+    );
     expect(info.libraryId, 'library');
     expect(info.capabilities, contains('captures.commit'));
     expect(info.capabilities, contains('imports.finish'));

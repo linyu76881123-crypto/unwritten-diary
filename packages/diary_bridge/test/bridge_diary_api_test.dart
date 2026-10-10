@@ -5,6 +5,8 @@ import 'package:diary_api/diary_api.dart';
 import 'package:diary_bridge/diary_bridge.dart' show BridgeDiaryApi;
 import 'package:test/test.dart';
 
+import 'expected_schema.dart';
+
 /// 适配层的端到端测试：**只经契约接口**（`DiaryApi`）走真核心 + 真 SQLite。
 ///
 /// 这条路径就是前端 `CaptureController` 用的那条：`open` → `createDraft` →
@@ -50,7 +52,8 @@ void main() {
   test('经契约接口完成一条记录（真核心 + 真 SQLite）', () async {
     final opened = await api.open();
     expect(opened.coreInfo.apiVersion, '1.0');
-    expect(opened.coreInfo.dataSchemaVersion, 5);
+    // 版本号只在这一处维护（见 expected_schema.dart 的说明）。
+    expect(opened.coreInfo.dataSchemaVersion, expectedDataSchemaVersion);
     expect(opened.coreInfo.capabilities, contains('captures.commit'));
     expect(opened.captureCount, 0);
     expect(
