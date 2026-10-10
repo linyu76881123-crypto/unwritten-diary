@@ -594,20 +594,20 @@ fn editing_text_invalidates_a_running_session() {
 
 // ------------------------------------------------------------ v5 → v6 迁移回填
 
-/// 迁移回填：把库退回到「v5 的样子」（删掉 v6 的两张表、user_version 与
+/// 迁移回填：把库退回到「v6 的样子」（删掉 v7 的两张表、user_version 与
 /// schema_migrations 退回 5），再用 `Core::open` 打开，验证两边的索引都在。
 ///
 /// 这一步**不是**用一个老构建真的建过一次库：v5 状态是手工重建的（v6 的表删掉、
 /// 版本号退回去），所以它验证的是「升级路径会建表并回填」这件事，而不是
 /// 「老二进制写出的文件字节级长什么样」。后者需要一个旧构建产物，代价太大。
 #[test]
-fn v5_library_migrates_and_backfills_capture_text() {
+fn v6_library_migrates_and_backfills_capture_text() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("library.sqlite");
 
     let capture_id = {
         let mut core = Core::open(&path).unwrap();
-        assert_eq!(core.schema_version().unwrap(), 6);
+        assert_eq!(core.schema_version().unwrap(), 7);
         let capture_id = write_capture(&mut core, at(2026, 9, 20), "妈妈打电话来。", "op1");
         // 派生内容那一路也要有一条，验证升级不碰 v5 的索引。
         import_and_extract(&mut core, &capture_id, "天气.txt", "今天天气不错。\n", "op-mat");
@@ -619,18 +619,18 @@ fn v5_library_migrates_and_backfills_capture_text() {
         conn.execute_batch(
             "DROP TABLE search_capture_grams;
              DROP TABLE search_capture_docs;
-             UPDATE schema_migrations SET version = 5;
-             PRAGMA user_version = 5;",
+             UPDATE schema_migrations SET version = 6;
+             PRAGMA user_version = 6;",
         )
         .unwrap();
         let version: i64 = conn
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 5, "先确认真的退回到了 v5");
+        assert_eq!(version, 6, "先确认真的退回到了 v6（代次表已在 v6，记录文字表在 v7）");
     }
 
     let mut core = Core::open(&path).unwrap();
-    assert_eq!(core.schema_version().unwrap(), 6, "打开时要升到 v6");
+    assert_eq!(core.schema_version().unwrap(), 7, "打开时要升到 v7");
 
     // 记录文字被回填，能直接搜到。
     let snapshot = search(&mut core, "妈妈");
@@ -674,4 +674,54 @@ fn capture_index_works_on_an_in_memory_library() {
     assert_eq!(search(&mut core, "面试官").results.len(), 1);
     assert_eq!(search(&mut core, "面试").results.len(), 1, "2-gram 并集要生效");
     assert_eq!(search(&mut core, "紧").results.len(), 1, "单字也要能搜到");
+}
+/// 状态里的词项数必须是**两路词项的并集**。
+///
+/// 审查发现：`index_terms` 原来是分别对 `search_grams`、`search_capture_grams`
+/// 做 `COUNT(DISTINCT term)` 再相加，两路都含同一个词（比如「妈妈」）时会算两次。
+#[test]
+fn index_terms_counts_shared_terms_once() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("library.sqlite");
+    let mut core = Core::open(&path).unwrap();
+
+    // 同一条记录：自己写的文字里有「妈妈」，导入材料的片段里也有「妈妈」。
+    let capture_id = write_capture(&mut core, at(2026, 9, 20), "妈妈打电话来。", "op1");
+    import_and_extract(
+        &mut core,
+        &capture_id,
+        "信.txt",
+        "妈妈后来又写了一封信。\n",
+        "op-mat",
+    );
+
+    let status = core.index_status(None).unwrap();
+    let conn = rusqlite::Connection::open(&path).unwrap();
+    let union: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM (\
+                 SELECT term FROM search_grams \
+                 UNION \
+                 SELECT term FROM search_capture_grams)",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let two_path_sum: i64 = conn
+        .query_row(
+            "SELECT (SELECT COUNT(DISTINCT term) FROM search_grams) \
+                  + (SELECT COUNT(DISTINCT term) FROM search_capture_grams)",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+
+    assert!(
+        two_path_sum > union,
+        "前提：两路确实有重叠词项，否则这条测试测不到东西（并集 {union}，分别计数相加 {two_path_sum}）"
+    );
+    assert_eq!(
+        status.index_terms, union,
+        "index_terms 必须是两路词项的并集（并集 {union}，分别计数相加 {two_path_sum}）"
+    );
 }

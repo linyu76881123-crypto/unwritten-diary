@@ -395,11 +395,15 @@ pub(crate) fn status(core: &Core, source_scope: Option<&[String]>) -> Result<Ind
     ))? + count(&format!(
         "SELECT COUNT(*) FROM search_capture_grams WHERE doc_id IN ({scoped_capture_doc_ids})"
     ))?;
+    // 词项要取**并集**再数：同一个词可能既出现在派生片段里、又出现在用户自己写的
+    // 文字里（比如两边都有「妈妈」），分别 COUNT(DISTINCT) 再相加会把它算两次，
+    // 状态数字偏大（审查发现的）。UNION 自带去重，所以外面直接 COUNT(*)。
     let index_terms = count(&format!(
-        "SELECT COUNT(DISTINCT term) FROM search_grams WHERE doc_id IN ({scoped_doc_ids})"
-    ))? + count(&format!(
-        "SELECT COUNT(DISTINCT term) FROM search_capture_grams \
-         WHERE doc_id IN ({scoped_capture_doc_ids})"
+        "SELECT COUNT(*) FROM (\
+             SELECT term FROM search_grams WHERE doc_id IN ({scoped_doc_ids}) \
+             UNION \
+             SELECT term FROM search_capture_grams WHERE doc_id IN ({scoped_capture_doc_ids})\
+         )"
     ))?;
 
     // ------------------------------------------------------------ 记录文字
