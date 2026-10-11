@@ -89,7 +89,11 @@ set(DIARY_BRIDGE_DLL
 if(NOT EXISTS "${DIARY_BRIDGE_DLL}")
   message(FATAL_ERROR "Missing diary_bridge.dll: ${DIARY_BRIDGE_DLL}. Build the Rust Windows target first or pass -DDIARY_BRIDGE_DLL=<path>.")
 endif()
-install(FILES "${DIARY_BRIDGE_DLL}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+# app_services.dart loads this from Platform.resolvedExecutable's directory.
+# Use the executable's install destination explicitly even if Flutter's
+# INSTALL_BUNDLE_LIB_DIR changes to a separate lib/ folder later.
+message(STATUS "Installing diary_bridge.dll next to ${BINARY_NAME}.exe: ${CMAKE_INSTALL_PREFIX}")
+install(FILES "${DIARY_BRIDGE_DLL}" DESTINATION "${CMAKE_INSTALL_PREFIX}"
   COMPONENT Runtime)
 
 if(PLUGIN_BUNDLED_LIBRARIES)

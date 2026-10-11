@@ -238,6 +238,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('记录版本冲突'), findsWidgets);
     expect(find.text('没有丢失'), findsOneWidget);
+    expect(find.text('复制文字'), findsOneWidget);
+    expect(find.text('重试'), findsNothing);
   });
 
   testWidgets('two times text scale keeps a committed capture reachable', (

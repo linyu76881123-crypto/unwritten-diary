@@ -144,7 +144,7 @@ void main() {
       expect(await finish, isTrue);
       expect(await firstSave, isTrue);
       expect(api.calls.map((call) => call.text), ['A', 'AB']);
-      expect(api.calls.map((call) => call.revision), [0, 1]);
+      expect(api.calls[1].revision, api.calls[0].revision + 1);
       expect(api.commits, 1);
       expect((await api.listCaptures()).captures.single.draftText, 'AB');
       controller.dispose();
@@ -162,7 +162,10 @@ void main() {
     expect(api.calls, hasLength(2));
     expect(api.calls[1].operationId, api.calls[0].operationId);
     expect(api.calls[1].revision, api.calls[0].revision);
-    expect((await api.listCaptures()).captures.single.revision, 1);
+    expect(
+      (await api.listCaptures()).captures.single.revision,
+      api.calls[0].revision + 1,
+    );
     controller.dispose();
   });
 
@@ -176,8 +179,43 @@ void main() {
     controller.updateText('');
     expect(await controller.saveNow(), isTrue);
     expect((await api.listCaptures()).captures.single.draftText, isEmpty);
+    expect(await controller.finish(), isFalse);
+    expect(
+      (await api.listCaptures()).captures.single.state,
+      CaptureState.draft,
+    );
     controller.dispose();
   });
+
+  for (final code in [
+    DiaryErrorCode.revisionConflict,
+    DiaryErrorCode.idempotencyConflict,
+    DiaryErrorCode.invalidState,
+  ]) {
+    test('$code preserves text and blocks stale write retries', () async {
+      final api = MockDiaryApi()
+        ..nextSaveFailure = DiaryException(
+          code: code,
+          message: 'core detail',
+        );
+      final controller = CaptureController(api);
+      await controller.initialize();
+      controller.updateText('还没收好的文字');
+
+      expect(await controller.saveNow(), isFalse);
+      expect(controller.needsManualRecovery, isTrue);
+      expect(controller.error, contains('请先复制'));
+      controller.updateText('还没收好的文字，继续写');
+      expect(await controller.saveNow(), isFalse);
+      expect(await controller.finish(), isFalse);
+      expect(controller.text, '还没收好的文字，继续写');
+      expect(
+        (await api.listCaptures()).captures.single.state,
+        CaptureState.draft,
+      );
+      controller.dispose();
+    });
+  }
 
   test(
     'commit retry reuses operationId after a lost acknowledgement',

@@ -587,7 +587,19 @@ class _ExperienceShellState extends State<ExperienceShell>
             style: const TextStyle(color: SketchColors.muted, fontSize: 13),
           ),
         ),
-        if (_capture.phase == SavePhase.failed && !_capture.finishing)
+        if (_capture.phase == SavePhase.failed &&
+            _capture.needsManualRecovery &&
+            _capture.text.isNotEmpty)
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: _capture.text));
+              if (mounted) _toast('文字已复制，可以重新打开应用。');
+            },
+            child: const Text('复制文字'),
+          ),
+        if (_capture.phase == SavePhase.failed &&
+            !_capture.needsManualRecovery &&
+            !_capture.finishing)
           TextButton(onPressed: _capture.saveNow, child: const Text('重试')),
       ],
     );

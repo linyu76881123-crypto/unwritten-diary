@@ -1,4 +1,6 @@
 import 'package:diary_api/diary_api.dart';
+import 'package:diary_mock/diary_mock.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'src/app_services.dart';
@@ -6,7 +8,11 @@ import 'src/experience_shell.dart';
 import 'src/sketch_ui.dart';
 import 'src/theme.dart';
 
-void main() => runApp(const DiaryApp());
+const _previewMode = bool.fromEnvironment('DIARY_DEMO_MODE');
+
+void main() => runApp(
+  DiaryApp(api: _previewMode ? MockDiaryApi() : null, demoMode: _previewMode),
+);
 
 class DiaryApp extends StatelessWidget {
   const DiaryApp({super.key, this.api, this.demoMode = false});
@@ -44,27 +50,39 @@ class _BootGateState extends State<_BootGate> {
   }
 
   Future<({DiaryApi api, CoreSnapshot snapshot})> _open() async {
-    final api = widget.api ?? await createProductionDiaryApi();
-    final snapshot = await api.open();
-    final appMajor = int.tryParse(kApiVersion.split('.').first);
-    final coreMajor = int.tryParse(
-      snapshot.coreInfo.apiVersion.split('.').first,
-    );
-    if (appMajor == null || coreMajor != appMajor) {
-      throw _CoreUnavailable('资料库接口版本不兼容，请更新应用后再打开。');
+    try {
+      final api = widget.api ?? await createProductionDiaryApi();
+      final snapshot = await api.open();
+      final appMajor = int.tryParse(kApiVersion.split('.').first);
+      final coreMajor = int.tryParse(
+        snapshot.coreInfo.apiVersion.split('.').first,
+      );
+      if (appMajor == null || coreMajor != appMajor) {
+        throw _CoreUnavailable('资料库接口版本不兼容，请更新应用后再打开。');
+      }
+      const requiredCaptureCapabilities = {
+        'captures.createDraft',
+        'captures.saveDraft',
+        'captures.commit',
+        'captures.list',
+      };
+      if (!snapshot.coreInfo.capabilities.containsAll(
+        requiredCaptureCapabilities,
+      )) {
+        throw _CoreUnavailable('资料库缺少记录所需能力，请更新核心后再打开。');
+      }
+      return (api: api, snapshot: snapshot);
+    } catch (failure, stackTrace) {
+      // The release UI stays concise; debug runs retain the actual bridge or
+      // SQLite error so a mismatched Rust/Dart build can be diagnosed.
+      if (kDebugMode) {
+        debugPrint(
+          'Diary core startup failed (${failure.runtimeType}): $failure',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
+      rethrow;
     }
-    const requiredCaptureCapabilities = {
-      'captures.createDraft',
-      'captures.saveDraft',
-      'captures.commit',
-      'captures.list',
-    };
-    if (!snapshot.coreInfo.capabilities.containsAll(
-      requiredCaptureCapabilities,
-    )) {
-      throw _CoreUnavailable('资料库缺少记录所需能力，请更新核心后再打开。');
-    }
-    return (api: api, snapshot: snapshot);
   }
 
   @override
